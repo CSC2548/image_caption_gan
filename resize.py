@@ -1,7 +1,7 @@
 import argparse
 import os
 from PIL import Image
-
+import pdb
 
 def resize_image(image, size):
     """Resize an image to the given size."""
@@ -16,15 +16,16 @@ def resize_images(image_dir, output_dir, size):
         images = files
         num_images = len(images)    
         for i, image in enumerate(images):
-            with open(os.path.join(image_dir, subdir + image), 'r+b') as f:
+            with open(os.path.join(subdir, image), 'r+b') as f:
                 with Image.open(f) as img:
                     img = resize_image(img, size)
-                    if not os.path.exists(output_dir + subdir):
-                        os.makedirs(output_dir + subdir)
-                    img.save(os.path.join(output_dir + subdir, image), img.format)
+                    subdir_subname = subdir.split('/')[-1]
+                    if not os.path.exists(output_dir + subdir_subname):
+                        os.makedirs(output_dir + subdir_subname)
+                    img.save(os.path.join(output_dir + subdir_subname, image), img.format)
             if i % 100 == 0:
                 print ("[%d/%d] Resized the images and saved into '%s'."
-                    %(i, num_images, output_dir+subdir))
+                    %(i, num_images, output_dir+subdir_subname))
     
 def main(args):
     splits = ['train', 'val']
@@ -38,7 +39,7 @@ def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # parser.add_argument('--image_dir', type=str, default='./data/train2014/',
-    parser.add_argument('--image_dir', type=str, default='./data/CUB200_2011/images/',
+    parser.add_argument('--image_dir', type=str, default='./data/CUB_200_2011/images/',
                         help='directory for train images')
     # parser.add_argument('--output_dir', type=str, default='./data/resized2014/',
     parser.add_argument('--output_dir', type=str, default='./data/resized_CUB/',
