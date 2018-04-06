@@ -34,7 +34,6 @@ class CUBDataset(data.Dataset):
 
         # get image
         image = Image.open(os.path.join(self.root, 'images/' + image_path)).convert('RGB')
-        print(image)
         if self.transform is not None:
             image = self.transform(image)
 
