@@ -4,6 +4,7 @@ import argparse
 from collections import Counter
 import os
 import pdb
+from tqdm import tqdm
 
 class Vocabulary(object):
     """Simple vocabulary wrapper."""
@@ -29,25 +30,14 @@ class Vocabulary(object):
 def build_vocab(filepath, threshold):
     """Build a simple vocabulary wrapper."""
     # go through all files
-    for subdir, dirs, files in os.walk(filepath):
-        for caption_file in files:
-            with open(os.path.join(subdir, caption_file), 'r') as f:
-                print(f.readlines())
-
-
-    # coco = COCO(json)
     counter = Counter()
-    # ids = coco.anns.keys()
-    # for i, id in enumerate(ids):
-    #     caption = str(coco.anns[id]['caption'])
-    #     tokens = nltk.tokenize.word_tokenize(caption.lower())
-    #     counter.update(tokens)
-
-    #     if i % 1000 == 0:
-    #         print("[%d/%d] Tokenized the captions." %(i, len(ids)))
-    
-
-
+    for subdir, dirs, files in os.walk(filepath):
+        for caption_file in tqdm(files):
+            with open(os.path.join(subdir, caption_file), 'r') as f:
+                captions = f.readlines()
+                for caption in captions:
+                    tokens = nltk.tokenize.word_tokenize(caption.lower())
+                    counter.update(tokens)    
 
     # If the word frequency is less than 'threshold', then the word is discarded.
     words = [word for word, cnt in counter.items() if cnt >= threshold]
@@ -81,7 +71,7 @@ if __name__ == '__main__':
                         # default='./data/annotations/captions_train2014.json',
                         default='./data/birds_captions/',
                         help='path for train annotation file')
-    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl', 
+    parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab.pkl', 
                         help='path for saving vocabulary wrapper')
     parser.add_argument('--threshold', type=int, default=4, 
                         help='minimum word count threshold')
