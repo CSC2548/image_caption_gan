@@ -55,8 +55,6 @@ class DecoderRNN(nn.Module):
         return outputs
     
     def sample(self, features, states=None):
-        print('here')
-        # pdb.set_trace()
         """Samples captions for given image features (Greedy search)."""
         sampled_ids = []
         inputs = features.unsqueeze(1)
@@ -67,7 +65,6 @@ class DecoderRNN(nn.Module):
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
-        #pdb.set_trace()
         #sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)i
         sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)i
         return sampled_ids.squeeze()

@@ -7,39 +7,41 @@ import numpy as np
 import nltk
 from PIL import Image
 from build_vocab import Vocabulary
-from pycocotools.coco import COCO
+import pdb
 
-
-class CocoDataset(data.Dataset):
-    """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
-    def __init__(self, root, json, vocab, transform=None):
+class CUBDataset(data.Dataset):
+    """CUB Custom Dataset compatible with torch.utils.data.Dataloader."""
+    def __init__(self, root, captionpath, vocab, transform=None):
         """Set the path for images, captions and vocabulary wrapper.
         
         Args:
             root: image directory.
-            json: coco annotation file path.
+            captionpath: CUB caption file path.
             vocab: vocabulary wrapper.
             transform: image transformer.
         """
         self.root = root
-        self.coco = COCO(json)
-        self.ids = list(self.coco.anns.keys())
+        self.image_paths = open(os.path.join(self.root, 'images.txt'), 'r').readlines()
+        self.caption_root = captionpath
         self.vocab = vocab
         self.transform = transform
 
     def __getitem__(self, index):
         """Returns one data pair (image and caption)."""
-        coco = self.coco
         vocab = self.vocab
-        ann_id = self.ids[index]
-        caption = coco.anns[ann_id]['caption']
-        img_id = coco.anns[ann_id]['image_id']
-        path = coco.loadImgs(img_id)[0]['file_name']
+        image_path = self.image_paths[index].split()[1]
+        caption_path = self.image_paths[index].split()[1][:-3] + 'txt'
 
-        image = Image.open(os.path.join(self.root, path)).convert('RGB')
+        # get image
+        image = Image.open(os.path.join(self.root, 'images/' + image_path)).convert('RGB')
+        print(image)
         if self.transform is not None:
             image = self.transform(image)
 
+        # get caption
+        # TODO: only taking first caption for now
+        caption = open(os.path.join(self.caption_root, caption_path), 'r').readlines()[0]
+        tokens = nltk.tokenize.word_tokenize(str(caption).lower())
         # Convert caption (string) to word ids.
         tokens = nltk.tokenize.word_tokenize(str(caption).lower())
         caption = []
@@ -47,10 +49,11 @@ class CocoDataset(data.Dataset):
         caption.extend([vocab(token) for token in tokens])
         caption.append(vocab('<end>'))
         target = torch.Tensor(caption)
+
         return image, target
 
     def __len__(self):
-        return len(self.ids)
+        return len(self.image_paths)
 
 
 def collate_fn(data):
@@ -85,11 +88,11 @@ def collate_fn(data):
     return images, targets, lengths
 
 
-def get_loader(root, json, vocab, transform, batch_size, shuffle, num_workers):
+def get_loader(root, captionpath, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
-    coco = CocoDataset(root=root,
-                       json=json,
+    coco = CUBDataset(root=root,
+                       captionpath=captionpath,
                        vocab=vocab,
                        transform=transform)
     

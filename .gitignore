@@ -1,4 +1,6 @@
 data/
 models/
+birds_models/
 __pycache__/
 png/
+.vscode/
