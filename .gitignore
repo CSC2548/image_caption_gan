@@ -1,6 +1,7 @@
 data/
 models/
 birds_models/
+historic_models/
 __pycache__/
 png/
 .vscode/
