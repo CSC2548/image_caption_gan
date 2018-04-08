@@ -1,5 +1,5 @@
 # TODO list:
-* train/test split
+* done: train/test split
 * resize 64 by 64 images and change alexnet arch for 64 by 64 images
 * add GAN parts 
 
