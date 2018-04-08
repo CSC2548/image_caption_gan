@@ -8,6 +8,7 @@ import nltk
 from PIL import Image
 from build_vocab import Vocabulary
 import pdb
+import pandas as pd
 
 class CUBDataset(data.Dataset):
     """CUB Custom Dataset compatible with torch.utils.data.Dataloader."""
@@ -21,7 +22,14 @@ class CUBDataset(data.Dataset):
             transform: image transformer.
         """
         self.root = root
-        self.image_paths = open(os.path.join(self.root, 'images.txt'), 'r').readlines()
+        
+        # self.image_paths = open(os.path.join(self.root, 'images.txt'), 'r').readlines()
+        image_paths_df = pd.read_table(os.path.join(self.root, 'images.txt'), sep=' ', header=None)
+        image_paths_df.columns = ['index', 'img_name']
+        train_test_split_df = pd.read_table(os.path.join(self.root, 'train_test_split.txt'), sep=' ', header=None)
+        train_test_split_df.columns = ['index', 'split']
+        self.image_paths = image_paths_df[train_test_split_df == 1] # select training set
+
         self.caption_root = captionpath
         self.vocab = vocab
         self.transform = transform
@@ -29,8 +37,9 @@ class CUBDataset(data.Dataset):
     def __getitem__(self, index):
         """Returns one data pair (image and caption)."""
         vocab = self.vocab
-        image_path = self.image_paths[index].split()[1]
-        caption_path = self.image_paths[index].split()[1][:-3] + 'txt'
+        # image_path = self.image_paths[index].split()[1]
+        image_path = self.image_paths.loc[index, 'img_name']
+        caption_path = image_path[:-3] + 'txt'
 
         # get image
         image = Image.open(os.path.join(self.root, 'images/' + image_path)).convert('RGB')
