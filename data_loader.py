@@ -28,8 +28,7 @@ class CUBDataset(data.Dataset):
         image_paths_df.columns = ['index', 'img_name']
         train_test_split_df = pd.read_table(os.path.join(self.root, 'train_test_split.txt'), sep=' ', header=None)
         train_test_split_df.columns = ['index', 'split']
-        self.image_paths = image_paths_df[train_test_split_df == 1] # select training set
-
+        self.image_paths = image_paths_df[train_test_split_df['split'] == 1] # select training set
         self.caption_root = captionpath
         self.vocab = vocab
         self.transform = transform
@@ -38,7 +37,10 @@ class CUBDataset(data.Dataset):
         """Returns one data pair (image and caption)."""
         vocab = self.vocab
         # image_path = self.image_paths[index].split()[1]
-        image_path = self.image_paths.loc[index, 'img_name']
+        # print(self.image_paths.head())
+        # print(self.image_paths.loc[index, 'img_name'])
+        # image_path = self.image_paths.loc[index, 'img_name']
+        image_path = self.image_paths.iloc[[index]].img_name.values[0]
         caption_path = image_path[:-3] + 'txt'
 
         # get image
