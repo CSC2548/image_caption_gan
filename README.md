@@ -1,7 +1,12 @@
 # TODO list:
 * done: train/test split
-* resize 64 by 64 images and change alexnet arch for 64 by 64 images
-* add GAN parts 
+* disc architecture
+* disc train
+* gen arch change
+* gen train
+
+# Might use:
+* resize 64 by 64 images and change alexnet arch for 64 by 64 images or 128
 
 
 # Image Captioning
