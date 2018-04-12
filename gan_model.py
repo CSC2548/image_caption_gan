@@ -5,9 +5,9 @@ from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
 from model import EncoderCNN
 
-class discriminator(nn.Module):
+class Discriminator(nn.Module):
     def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
-        super(discriminator, self).__init__()
+        super(Discriminator, self).__init__()
         # self.embed = nn.Embedding(vocab_size, embed_size)
         # self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)        
         self.image_feature_encoder = EncoderCNN(embed_size)
