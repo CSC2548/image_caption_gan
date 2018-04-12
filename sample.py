@@ -75,7 +75,8 @@ def main(args):
     print (sentence)
     image = Image.open(args.image)
     plt.imshow(np.asarray(image))
-    
+    # pdb.set_trace()
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--image', type=str, required=True,

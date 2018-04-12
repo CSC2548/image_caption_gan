@@ -82,15 +82,29 @@ def main(args):
             encoder.zero_grad()
             features = encoder(images)
             outputs = decoder(features, captions, lengths)
-            sample_captions = decoder.sample(features)
+            
+            sampled_ids = decoder.sample(features)
+            sampled_captions = torch.zeros_like(sampled_ids)
+            sampled_lengths = []
+
+            for row in range(sampled_ids.size(0)):
+                for i, word_id in enumerate(sampled_ids[row,:]):
+                    # pdb.set_trace()
+                    word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
+                    sampled_captions[row, i].data = word
+                    if word == '<end>':
+                        sampled_lengths.append(i+1)
+                        break
+
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
 
             # Train discriminator
+            pdb.set_trace()
             discriminator.zero_grad()
             rewards_real = discriminator(images, captions, lengths) # TODO: check, rewards should be of (batch_size)
-            rewards_fake = discriminator(images, sample_captions, lengths) # TODO: are the outputs captions?
+            rewards_fake = discriminator(images, sampled_captions, sampled_lengths) # TODO: are the outputs captions?
             rewards_wrong = 0 # TODO need to change dataloader to get wrong caption
             real_loss = -torch.mean(torch.log(rewards_real))
             fake_loss = -torch.mean(1- torch.log(rewards_fake))
