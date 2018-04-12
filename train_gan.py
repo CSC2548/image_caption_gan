@@ -53,6 +53,7 @@ def main(args):
     if torch.cuda.is_available():
         encoder.cuda()
         decoder.cuda()
+        discriminator.cuda()
 
     # Loss and Optimizer (Gen)
     criterion = nn.CrossEntropyLoss()
@@ -75,12 +76,13 @@ def main(args):
             images = to_var(images, volatile=True)
             captions = to_var(captions)
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
-            
+
             # Forward, Backward and Optimize
             decoder.zero_grad()
             encoder.zero_grad()
             features = encoder(images)
             outputs = decoder(features, captions, lengths)
+            sample_captions = decoder.sample(features)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
@@ -88,11 +90,11 @@ def main(args):
             # Train discriminator
             discriminator.zero_grad()
             rewards_real = discriminator(images, captions, lengths) # TODO: check, rewards should be of (batch_size)
-            rewards_fake = discriminator(images, outputs, lengths) # TODO: are the outputs captions?
+            rewards_fake = discriminator(images, sample_captions, lengths) # TODO: are the outputs captions?
             rewards_wrong = 0 # TODO need to change dataloader to get wrong caption
-            real_loss = torch.mean(torch.log(rewards_real))
-            fake_loss = torch.mean(1- torch.log(rewards_fake))
-            wrong_loss = torch.mean(1 - torch.log(rewards_wrong))
+            real_loss = -torch.mean(torch.log(rewards_real))
+            fake_loss = -torch.mean(1- torch.log(rewards_fake))
+            wrong_loss = -torch.mean(1 - torch.log(rewards_wrong))
             loss_disc = real_loss + fake_loss + wrong_loss
             loss_disc.backward()
             optimizer_disc.step()
@@ -127,7 +129,7 @@ if __name__ == '__main__':
     parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab.pkl',
                         help='path for vocabulary wrapper')
     # parser.add_argument('--image_dir', type=str, default='./data/resized2014' ,
-    parser.add_argument('--image_dir', type=str, default='./data/resized_CUB_64/' ,
+    parser.add_argument('--image_dir', type=str, default='./data/resized_CUB/' ,
                         help='directory for resized images')
     parser.add_argument('--caption_path', type=str,
                         # default='./data/annotations/captions_train2014.json',
