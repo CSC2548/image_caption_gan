@@ -12,12 +12,13 @@ class discriminator(nn.Module):
         # self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)        
         self.image_feature_encoder = EncoderCNN(embed_size)
         self.sentence_feature_encoder = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
-        self.cnn_fine_tune_linear = nn.Linear(embed_size, hidden_size)
+        # self.cnn_fine_tune_linear = nn.Linear(embed_size, hidden_size)
+        self.hidden_fine_tune_linear = nn.Linear(hidden_size, embed_size)
 
     def forward(self, images, captions, lengths):
         """Calculate reward score: r = logistic(dot_prod(f, h))"""
         features = self.image_feature_encoder(images) #(batch_size=128, embed_size=256)
-        fine_tuned_features = self.cnn_fine_tune_linear(features)
+        # fine_tuned_features = self.cnn_fine_tune_linear(features)
 
         embeddings = self.embed(captions) # (batch_size, embed_size)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
@@ -27,8 +28,9 @@ class discriminator(nn.Module):
         # padded[0] # (batch_size, T_max, hidden_size)
         last_padded_indices = [index-1 for index in padded[1]]
         hidden_outputs = padded[0][range(128), last_padded_indices, :]
+        hidden_outputs = self.hidden_fine_tune_linear(hidden_outputs)
         
-        dot_prod = torch.dot(fine_tuned_features, hidden_outputs)
+        dot_prod = torch.dot(features, hidden_outputs)
         return nn.Sigmoid(dot_prod)
 
 
