@@ -1,1 +1,1 @@
-python3 sample.py --image=./data/resized_CUB/images/073.Blue_Jay/Blue_Jay_0013_61463.jpg --encoder_path=./historic_models/birds_models_256_first_split/encoder-99-45.pkl --decoder_path=./historic_models/birds_models_256_first_split/decoder-99-45.pkl --vocab_path=./data/birds_vocab.pkl
+python3 sample.py --image=./data/resized_CUB/images/073.Blue_Jay/Blue_Jay_0013_61463.jpg --encoder_path=./birds_gan_models/encoder-5-47.pkl --decoder_path=./birds_gan_models/decoder-5-47.pkl --vocab_path=./data/birds_vocab.pkl

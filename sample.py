@@ -60,8 +60,7 @@ def main(args):
     feature = encoder(image_tensor)
     #pdb.set_trace()
     sampled_ids = decoder.sample(feature)
-    sampled_ids = sampled_ids.cpu().data.numpy()
-    
+    sampled_ids = sampled_ids.cpu().data.numpy()[0]
     # Decode word_ids to words
     sampled_caption = []
     for word_id in sampled_ids:
