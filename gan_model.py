@@ -4,6 +4,7 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
 from model import EncoderCNN
+from model import DecoderRNN
 import pdb
 
 class Discriminator(nn.Module):
@@ -31,5 +32,20 @@ class Discriminator(nn.Module):
         
         dot_prod = torch.bmm(features.unsqueeze(1), hidden_outputs.unsqueeze(1).transpose(2,1)).squeeze()
         return nn.Sigmoid()(dot_prod)
+
+
+class Generator(nn.Module):
+    def __init__(self, embed_size, hidden_size, vocab_size, num_layers):
+        super(Generator, self).__init__()
+        self.encoder = EncoderCNN(embed_size)
+        self.decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+
+    def forward(self, images, captions, lengths):
+        """Getting captions"""
+        features = self.encoder(images)
+        
+        outputs = self.decoder(features, captions, lengths)
+
+
 
 

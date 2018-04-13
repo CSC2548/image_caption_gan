@@ -48,6 +48,7 @@ class DecoderRNN(nn.Module):
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
+        self.softmax = nn.Softmax()
         self.init_weights()
     
     def init_weights(self):
@@ -72,7 +73,10 @@ class DecoderRNN(nn.Module):
         for i in range(20):                                      # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
-            predicted = outputs.max(1)[1]
+            # predicted = outputs.max(1)[1]
+            outputs = self.softmax(outputs)
+            predicted_index = outputs.multinomial(1)
+            predicted = outputs[predicted_index]
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
