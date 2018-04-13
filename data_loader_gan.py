@@ -51,7 +51,7 @@ class CUBDataset(data.Dataset):
         # get caption
         # TODO: only taking first caption for now
         caption = open(os.path.join(self.caption_root, caption_path), 'r').readlines()[0]
-        tokens = nltk.tokenize.word_tokenize(str(caption).lower())
+        # tokens = nltk.tokenize.word_tokenize(str(caption).lower())
         # Convert caption (string) to word ids.
         tokens = nltk.tokenize.word_tokenize(str(caption).lower())
         caption = []
@@ -60,7 +60,21 @@ class CUBDataset(data.Dataset):
         caption.append(vocab('<end>'))
         target = torch.Tensor(caption)
 
-        return image, target
+        # getting a wrong target (caption)
+        wrong_prob = [1/(len(self.image_paths)-1) if i != index else 0 for i in range(len(self.image_paths))]
+        wrong_index = np.random.choice(range(len(self.image_paths)), 1, wrong_prob)[0]
+        
+        wrong_image_path = self.image_paths.iloc[[wrong_index]].img_name.values[0]
+        wrong_caption_path = wrong_image_path[:-3] + 'txt'
+        wrong_caption = open(os.path.join(self.caption_root, wrong_caption_path), 'r').readlines()[0]
+        wrong_tokens = nltk.tokenize.word_tokenize(str(wrong_caption).lower())
+        wrong_caption = []
+        wrong_caption.append(vocab('<start>'))
+        wrong_caption.extend([vocab(token) for token in wrong_tokens])
+        wrong_caption.append(vocab('<end>'))
+        wrong_target = torch.Tensor(wrong_caption)
+
+        return image, target, wrong_target
 
     def __len__(self):
         return len(self.image_paths)
@@ -84,7 +98,7 @@ def collate_fn(data):
     """
     # Sort a data list by caption length (descending order).
     data.sort(key=lambda x: len(x[1]), reverse=True)
-    images, captions = zip(*data)
+    images, captions, wrong_captions = zip(*data)
 
     # Merge images (from tuple of 3D tensor to 4D tensor).
     images = torch.stack(images, 0)
@@ -94,24 +108,32 @@ def collate_fn(data):
     targets = torch.zeros(len(captions), max(lengths)).long()
     for i, cap in enumerate(captions):
         end = lengths[i]
-        targets[i, :end] = cap[:end]        
-    return images, targets, lengths
+        targets[i, :end] = cap[:end]
+
+    # Getting wrong targets(captions)
+    wrong_lengths = [len(cap) for cap in wrong_captions]
+    wrong_targets = torch.zeros(len(wrong_captions), max(wrong_lengths)).long()
+    for i, cap in enumerate(wrong_captions):
+        end = wrong_lengths[i]
+        wrong_targets[i, :end] = cap[:end]
+    
+    return images, targets, lengths, wrong_targets, wrong_lengths
 
 
 def get_loader(root, captionpath, vocab, transform, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
-    # COCO caption dataset
-    coco = CUBDataset(root=root,
+    # CUB caption dataset
+    cub = CUBDataset(root=root,
                        captionpath=captionpath,
                        vocab=vocab,
                        transform=transform)
     
-    # Data loader for COCO dataset
+    # Data loader for CUB dataset
     # This will return (images, captions, lengths) for every iteration.
     # images: tensor of shape (batch_size, 3, 224, 224).
     # captions: tensor of shape (batch_size, padded_length).
     # lengths: list indicating valid length for each caption. length is (batch_size).
-    data_loader = torch.utils.data.DataLoader(dataset=coco, 
+    data_loader = torch.utils.data.DataLoader(dataset=cub, 
                                               batch_size=batch_size,
                                               shuffle=shuffle,
                                               num_workers=num_workers,

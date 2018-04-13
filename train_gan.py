@@ -68,8 +68,9 @@ def main(args):
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(args.num_epochs):
-        for i, (images, captions, lengths) in enumerate(data_loader):
+        for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
             
+            # pdb.set_trace()
             # TODO: train disc before gen
 
             # Set mini-batch dataset
@@ -107,14 +108,14 @@ def main(args):
 
             # Train discriminator
             discriminator.zero_grad()
-            rewards_real = discriminator(images, captions, lengths) # TODO: check, rewards should be of (batch_size)
+            rewards_real = discriminator(images, captions, lengths)
             rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
-            # rewards_wrong = 0 # TODO need to change dataloader to get wrong caption
+            rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
             real_loss = -torch.mean(torch.log(rewards_real))
             fake_loss = -torch.mean(torch.log(1 - rewards_fake))
-            # wrong_loss = -torch.mean(1 - torch.log(rewards_wrong))
-            # loss_disc = real_loss + fake_loss + wrong_loss
-            loss_disc = real_loss + fake_loss # TODO: add wrong loss
+            wrong_loss = -torch.mean(torch.log(1 - rewards_wrong))
+            loss_disc = real_loss + fake_loss + wrong_loss
+            
             loss_disc.backward()
             optimizer_disc.step()
 
@@ -171,7 +172,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--num_epochs', type=int, default=5)
     parser.add_argument('--batch_size', type=int, default=128)
-    parser.add_argument('--num_workers', type=int, default=2)
+    parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--learning_rate', type=float, default=0.001)
     
     # Disc hyperparameters
