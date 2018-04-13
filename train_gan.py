@@ -76,6 +76,7 @@ def main(args):
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
             captions = to_var(captions)
+            wrong_captions = to_var(wrong_captions)
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
             # Forward, Backward and Optimize

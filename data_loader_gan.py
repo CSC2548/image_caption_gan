@@ -100,6 +100,8 @@ def collate_fn(data):
     data.sort(key=lambda x: len(x[1]), reverse=True)
     images, captions, wrong_captions = zip(*data)
 
+    wrong_captions.sort(key=lambda x: len(x), reverse=True)
+
     # Merge images (from tuple of 3D tensor to 4D tensor).
     images = torch.stack(images, 0)
 
