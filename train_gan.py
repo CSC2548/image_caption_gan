@@ -83,33 +83,38 @@ def main(args):
             features = encoder(images)
             outputs = decoder(features, captions, lengths)
             
-            sampled_ids = decoder.sample(features)
-            sampled_captions = torch.zeros_like(sampled_ids)
+            sampled_captions = decoder.sample(features)
+            # sampled_captions = torch.zeros_like(sampled_ids)
             sampled_lengths = []
 
-            for row in range(sampled_ids.size(0)):
-                for i, word_id in enumerate(sampled_ids[row,:]):
+            for row in range(sampled_captions.size(0)):
+                for i, word_id in enumerate(sampled_captions[row,:]):
                     # pdb.set_trace()
                     word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
-                    sampled_captions[row, i].data = word
+                    # sampled_captions[row, i].data = word
                     if word == '<end>':
                         sampled_lengths.append(i+1)
                         break
-
+                    elif i == sampled_captions.size(1)-1:
+                        sampled_lengths.append(sampled_captions.size(1))
+                        break
+            sampled_lengths = np.array(sampled_lengths)
+            sampled_lengths[::-1].sort()
+            sampled_lengths = sampled_lengths.tolist()
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
 
             # Train discriminator
-            pdb.set_trace()
             discriminator.zero_grad()
             rewards_real = discriminator(images, captions, lengths) # TODO: check, rewards should be of (batch_size)
-            rewards_fake = discriminator(images, sampled_captions, sampled_lengths) # TODO: are the outputs captions?
-            rewards_wrong = 0 # TODO need to change dataloader to get wrong caption
+            rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
+            # rewards_wrong = 0 # TODO need to change dataloader to get wrong caption
             real_loss = -torch.mean(torch.log(rewards_real))
-            fake_loss = -torch.mean(1- torch.log(rewards_fake))
-            wrong_loss = -torch.mean(1 - torch.log(rewards_wrong))
-            loss_disc = real_loss + fake_loss + wrong_loss
+            fake_loss = -torch.mean(torch.log(1 - rewards_fake))
+            # wrong_loss = -torch.mean(1 - torch.log(rewards_wrong))
+            # loss_disc = real_loss + fake_loss + wrong_loss
+            loss_disc = real_loss + fake_loss # TODO: add wrong loss
             loss_disc.backward()
             optimizer_disc.step()
 
