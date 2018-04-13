@@ -10,6 +10,7 @@ from model import EncoderCNN, DecoderRNN
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
+import pdb
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -58,6 +59,7 @@ def main(args):
     for epoch in range(args.num_epochs):
         for i, (images, captions, lengths) in enumerate(data_loader):
             
+            pdb.set_trace()
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
             captions = to_var(captions)
@@ -98,7 +100,7 @@ if __name__ == '__main__':
     parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab.pkl',
                         help='path for vocabulary wrapper')
     # parser.add_argument('--image_dir', type=str, default='./data/resized2014' ,
-    parser.add_argument('--image_dir', type=str, default='./data/resized_CUB/' ,
+    parser.add_argument('--image_dir', type=str, default='./data/resized_CUB_64/' ,
                         help='directory for resized images')
     parser.add_argument('--caption_path', type=str,
                         # default='./data/annotations/captions_train2014.json',

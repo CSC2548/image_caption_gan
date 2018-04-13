@@ -88,14 +88,14 @@ def main(args):
             sampled_lengths = []
 
             for row in range(sampled_captions.size(0)):
-                for i, word_id in enumerate(sampled_captions[row,:]):
+                for index, word_id in enumerate(sampled_captions[row,:]):
                     # pdb.set_trace()
                     word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
-                    # sampled_captions[row, i].data = word
+                    # sampled_captions[row, index].data = word
                     if word == '<end>':
-                        sampled_lengths.append(i+1)
+                        sampled_lengths.append(index+1)
                         break
-                    elif i == sampled_captions.size(1)-1:
+                    elif index == sampled_captions.size(1)-1:
                         sampled_lengths.append(sampled_captions.size(1))
                         break
             sampled_lengths = np.array(sampled_lengths)
@@ -118,6 +118,7 @@ def main(args):
             loss_disc.backward()
             optimizer_disc.step()
 
+            # print('iteration %i' % i)
             # Print log info
             if i % args.log_step == 0:
                 print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
