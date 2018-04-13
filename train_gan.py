@@ -118,11 +118,11 @@ def main(args):
             rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
             rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
             real_loss = -torch.mean(torch.log(rewards_real))
-            fake_loss = -torch.mean(torch.log(1 - rewards_fake))
-            wrong_loss = -torch.mean(torch.log(1 - rewards_wrong))
+            fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
+            wrong_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_wrong), min=-1000))
             loss_disc = real_loss + fake_loss + wrong_loss
 
-            disc_losses.append(loss_disc.data.numpy()[0])
+            disc_losses.append(loss_disc.cpu().data.numpy()[0])
             loss_disc.backward()
             optimizer_disc.step()
 
@@ -190,7 +190,7 @@ if __name__ == '__main__':
     
     # Disc hyperparameters
     # jm: not mentioned in paper what they should be...
-    parser.add_argument('--disc_alpha', type=float, default=0.5)
+    parser.add_argument('--disc_alpha', type=float, default=0)
     parser.add_argument('--disc_beta', type=float, default=0.5)
     args = parser.parse_args()
     print(args)

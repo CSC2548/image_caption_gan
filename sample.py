@@ -72,8 +72,8 @@ def main(args):
     
     # Print out image and generated caption.
     print (sentence)
-    image = Image.open(args.image)
-    plt.imshow(np.asarray(image))
+    # image = Image.open(args.image)
+    # plt.imshow(np.asarray(image))
     # pdb.set_trace()
 
 if __name__ == '__main__':
