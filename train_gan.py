@@ -11,7 +11,11 @@ from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from gan_model import Discriminator
+import matplotlib
+matplotlib.use('Agg')
+import matplotlib.pyplot as plt
 import pdb
+
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -67,6 +71,7 @@ def main(args):
 
     # Train the Models
     total_step = len(data_loader)
+    disc_losses = []
     for epoch in range(args.num_epochs):
         for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
             
@@ -116,7 +121,8 @@ def main(args):
             fake_loss = -torch.mean(torch.log(1 - rewards_fake))
             wrong_loss = -torch.mean(torch.log(1 - rewards_wrong))
             loss_disc = real_loss + fake_loss + wrong_loss
-            
+
+            disc_losses.append(loss_disc.data.numpy()[0])
             loss_disc.backward()
             optimizer_disc.step()
 
@@ -139,7 +145,13 @@ def main(args):
                 torch.save(discriminator.state_dict(), 
                            os.path.join(args.model_path, 
                                         'discriminator-%d-%d.pkl' %(epoch+1, i+1)))
-                
+
+                # plot at the end of every epoch
+                plt.plot(disc_losses, label='disc loss')
+                plt.savefig('disc_losses.png')
+                plt.clf()
+    
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     # parser.add_argument('--model_path', type=str, default='./models/' ,
