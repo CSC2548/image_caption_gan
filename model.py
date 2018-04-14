@@ -57,10 +57,13 @@ class DecoderRNN(nn.Module):
         self.linear.weight.data.uniform_(-0.1, 0.1)
         self.linear.bias.data.fill_(0)
         
-    def forward(self, features, captions, lengths):
+    def forward(self, features, captions, lengths, noise=False):
         """Decode image feature vectors and generates captions."""
         embeddings = self.embed(captions)
-        embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
+        if noise:
+            embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
+        else:
+            embeddings = torch.cat((features.unsqueeze(1), torch.rand((embeddings.size(0), 1, embeddings.size(1))*)), 1)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])
@@ -73,10 +76,10 @@ class DecoderRNN(nn.Module):
         for i in range(20):                                      # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
-            # predicted = outputs.max(1)[1]
-            outputs = self.softmax(outputs)
-            predicted_index = outputs.multinomial(1)
-            predicted = outputs[predicted_index]
+            predicted = outputs.max(1)[1]
+            # outputs = self.softmax(outputs)
+            # predicted_index = outputs.multinomial(1)
+            # predicted = outputs[predicted_index]
             sampled_ids.append(predicted)
             inputs = self.embed(predicted)
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)

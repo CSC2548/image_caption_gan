@@ -5,6 +5,8 @@ from collections import Counter
 import os
 import pdb
 from tqdm import tqdm
+import re
+import string
 
 class Vocabulary(object):
     """Simple vocabulary wrapper."""
@@ -36,8 +38,10 @@ def build_vocab(filepath, threshold):
             with open(os.path.join(subdir, caption_file), 'r') as f:
                 captions = f.readlines()
                 for caption in captions:
+                    caption = str(caption.encode('ascii', 'ignore'))
+                    caption = re.sub(r'[!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', '', caption)
                     tokens = nltk.tokenize.word_tokenize(caption.lower())
-                    counter.update(tokens)    
+                    counter.update(tokens)
 
     # If the word frequency is less than 'threshold', then the word is discarded.
     words = [word for word, cnt in counter.items() if cnt >= threshold]
