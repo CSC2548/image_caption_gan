@@ -1,9 +1,10 @@
 # TODO list:
 * done: train/test split
-* disc architecture
-* disc train
+* done: disc architecture
+* done: disc train
 * gen arch change
 * gen train
+* check outputs -> currently (sum(lengths), vocab_size), but target is (sum(lengths), 1)
 
 # Might use:
 * resize 64 by 64 images and change alexnet arch for 64 by 64 images or 128

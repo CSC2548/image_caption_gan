@@ -60,10 +60,14 @@ class DecoderRNN(nn.Module):
     def forward(self, features, captions, lengths, noise=False):
         """Decode image feature vectors and generates captions."""
         embeddings = self.embed(captions)
-        if noise:
+        if not noise:
             embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
         else:
-            embeddings = torch.cat((features.unsqueeze(1), torch.rand((embeddings.size(0), 1, embeddings.size(1))*)), 1)
+            max_embedding = torch.max(features[0,:]).data.numpy()[0]
+            min_embedding = torch.min(features[0,:]).data.numpy()[0]
+            concat_noise = (max_embedding - min_embedding) * torch.rand((embeddings.size(0), 1, embeddings.size(2))) + torch.FloatTensor([float(min_embedding)]).unsqueeze(0).unsqueeze(1)
+            features = torch.cat((features.unsqueeze(1), Variable(concat_noise, requires_grad=False)), 1)
+            embeddings = torch.cat((features, embeddings), 1)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])

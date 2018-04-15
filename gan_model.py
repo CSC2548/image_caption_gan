@@ -43,10 +43,8 @@ class Generator(nn.Module):
     def forward(self, images, captions, lengths):
         """Getting captions"""
         features = self.encoder(images)
-        # Concat with noise
+        outputs = self.decoder(features, captions, lengths, noise=True)
         
-        outputs = self.decoder(features, captions, lengths)
-
 
 
 
