@@ -6,11 +6,11 @@ import os
 import pickle
 from data_loader_gan import get_loader
 from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN 
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
 from gan_model import Discriminator
+from gan_model import Generator
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -46,27 +46,27 @@ def main(args):
                              shuffle=True, num_workers=args.num_workers) 
 
     # Build the models (Gen)
-    # TODO: put these in generator
-    encoder = EncoderCNN(args.embed_size)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                         len(vocab), args.num_layers)
+    generator = Generator(args.embed_size, args.hidden_size, len(vocab), args.num_layers)
 
     # Build the models (Disc)
     discriminator = Discriminator(args.embed_size, args.hidden_size, len(vocab), args.num_layers)
     
     if torch.cuda.is_available():
-        encoder.cuda()
-        decoder.cuda()
+        generator.cuda()
         discriminator.cuda()
 
     # Loss and Optimizer (Gen)
-    criterion = nn.CrossEntropyLoss()
-    params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
-    optimizer = torch.optim.Adam(params, lr=args.learning_rate)
-    
+    mle_criterion = nn.CrossEntropyLoss()
+    params_gen = list(generator.parameters())
+    optimizer_gen = torch.optim.Adam(params_gen)
+
     # Loss and Optimizer (Disc)
     params_disc = list(discriminator.parameters())
     optimizer_disc = torch.optim.Adam(params_disc)
+
+    # Pre-training
+    total_steps = len(data_loader)
+    disc_losses = []
 
 
     # Train the Models
@@ -82,35 +82,46 @@ def main(args):
             images = to_var(images, volatile=True)
             captions = to_var(captions)
             wrong_captions = to_var(wrong_captions)
-            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+            # targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
             # Forward, Backward and Optimize
-            decoder.zero_grad()
-            encoder.zero_grad()
-            features = encoder(images)
-            outputs = decoder(features, captions, lengths)
+            # decoder.zero_grad()
+            # encoder.zero_grad()
+            # features = encoder(images)
+            # outputs = decoder(features, captions, lengths)
             
-            sampled_captions = decoder.sample(features)
+            # sampled_captions = decoder.sample(features)
             # sampled_captions = torch.zeros_like(sampled_ids)
-            sampled_lengths = []
+            # sampled_lengths = []
 
-            for row in range(sampled_captions.size(0)):
-                for index, word_id in enumerate(sampled_captions[row,:]):
-                    # pdb.set_trace()
-                    word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
-                    # sampled_captions[row, index].data = word
-                    if word == '<end>':
-                        sampled_lengths.append(index+1)
-                        break
-                    elif index == sampled_captions.size(1)-1:
-                        sampled_lengths.append(sampled_captions.size(1))
-                        break
-            sampled_lengths = np.array(sampled_lengths)
-            sampled_lengths[::-1].sort()
-            sampled_lengths = sampled_lengths.tolist()
-            loss = criterion(outputs, targets)
-            loss.backward()
-            optimizer.step()
+            # for row in range(sampled_captions.size(0)):
+            #     for index, word_id in enumerate(sampled_captions[row,:]):
+            #         # pdb.set_trace()
+            #         word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
+            #         # sampled_captions[row, index].data = word
+            #         if word == '<end>':
+            #             sampled_lengths.append(index+1)
+            #             break
+            #         elif index == sampled_captions.size(1)-1:
+            #             sampled_lengths.append(sampled_captions.size(1))
+            #             break
+            # sampled_lengths = np.array(sampled_lengths)
+            # sampled_lengths[::-1].sort()
+            # sampled_lengths = sampled_lengths.tolist()
+            # loss = criterion(outputs, targets)
+            # loss.backward()
+            # optimizer.step()
+
+            outputs = generator(images, captions, lengths) # (b, T, V)
+            Tmax = outputs[0].size(1)
+            gen_samples = torch.zeros((args.batch_size, Tmax))
+            # getting rewards from disc
+            for t in range(Tmax):
+                gen_samples[:,:t-1] = captions[:,:t-1]
+                for v in range(len(vocab)):
+                    gen_samples[:,t] = v
+                    gen_samples[:,t:] = generator.rollout()
+
 
             # Train discriminator
             discriminator.zero_grad()

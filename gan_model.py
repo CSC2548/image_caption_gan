@@ -3,8 +3,8 @@ import torch.nn as nn
 from torch.autograd import Variable
 from torch.nn.utils.rnn import pack_padded_sequence
 from torch.nn.utils.rnn import pad_packed_sequence
-from model import EncoderCNN
-from model import DecoderRNN
+from gan_encoder_decoder_model import EncoderCNN
+from gan_encoder_decoder_model import DecoderRNN
 import pdb
 
 class Discriminator(nn.Module):
@@ -43,8 +43,8 @@ class Generator(nn.Module):
     def forward(self, images, captions, lengths):
         """Getting captions"""
         features = self.encoder(images)
-        outputs = self.decoder(features, captions, lengths, noise=True)
-        
-
+        outputs = self.decoder(features, captions, lengths, noise=True) # (packed_size, vocab_size)
+        outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
+        return outputs
 
 

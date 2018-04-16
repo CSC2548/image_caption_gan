@@ -48,7 +48,7 @@ class DecoderRNN(nn.Module):
         self.embed = nn.Embedding(vocab_size, embed_size)
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
         self.linear = nn.Linear(hidden_size, vocab_size)
-        self.softmax = nn.Softmax()
+        self.softmax = nn.Softmax(dim=1)
         self.init_weights()
     
     def init_weights(self):
@@ -59,6 +59,7 @@ class DecoderRNN(nn.Module):
         
     def forward(self, features, captions, lengths, noise=False):
         """Decode image feature vectors and generates captions."""
+        # TODO: should not use all teacher forcing
         embeddings = self.embed(captions)
         if not noise:
             embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
@@ -71,7 +72,7 @@ class DecoderRNN(nn.Module):
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])
-        pdb.set_trace()
+        outputs = self.softmax(outputs)
         return outputs
     
     def sample(self, features, states=None):
@@ -82,6 +83,7 @@ class DecoderRNN(nn.Module):
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
             predicted = outputs.max(1)[1]
+            # pdb.set_trace()
             # outputs = self.softmax(outputs)
             # predicted_index = outputs.multinomial(1)
             # predicted = outputs[predicted_index]

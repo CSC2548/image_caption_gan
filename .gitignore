@@ -5,3 +5,4 @@ historic_models/
 __pycache__/
 png/
 .vscode/
+*.png
