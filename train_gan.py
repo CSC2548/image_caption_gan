@@ -114,15 +114,11 @@ def main(args):
     disc_losses = []
     for epoch in range(args.num_epochs):
         for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
-            
-            # pdb.set_trace()
-            # TODO: train disc before gen
 
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
             captions = to_var(captions)
             wrong_captions = to_var(wrong_captions)
-            # targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
             # Forward, Backward and Optimize
             # decoder.zero_grad()
@@ -152,7 +148,8 @@ def main(args):
             # loss.backward()
             # optimizer.step()
 
-            outputs = generator(images, captions, lengths) # (b, T, V)
+            generator.zero_grad()
+            outputs = generator(images, captions, lengths) # not (b, T, V), (s, V)
             Tmax = outputs[0].size(1)
             gen_samples = torch.zeros((args.batch_size, Tmax))
             # getting rewards from disc
@@ -161,12 +158,16 @@ def main(args):
                 for v in range(len(vocab)):
                     gen_samples[:,t] = v
                     gen_samples[:,t:] = generator.rollout()
+                    rewards = discriminator(images, gen_samples, sampled_lengths)
+            
+            loss = - outputs * rewards
+            
 
 
             # Train discriminator
             discriminator.zero_grad()
             rewards_real = discriminator(images, captions, lengths)
-            rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
+            rewards_fake = discriminator(images, sampled_captions, sampled_lengths)
             rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
             real_loss = -torch.mean(torch.log(rewards_real))
             fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
@@ -177,7 +178,6 @@ def main(args):
             loss_disc.backward()
             optimizer_disc.step()
 
-            # print('iteration %i' % i)
             # Print log info
             if i % args.log_step == 0:
                 print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
@@ -199,7 +199,7 @@ def main(args):
 
                 # plot at the end of every epoch
                 plt.plot(disc_losses, label='disc loss')
-                plt.savefig('disc_losses.png')
+                plt.savefig(args.figure_path + 'disc_losses.png')
                 plt.clf()
     
 
