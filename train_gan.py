@@ -15,7 +15,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pdb
-
+from tqdm import tqdm
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -70,7 +70,7 @@ def main(args):
     # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
     total_steps = len(data_loader)
     disc_losses = []
-    for epoch in range(max[args.gen_pretrain_num_epochs, args.disc_pretrain_num_epochs]):
+    for epoch in tqdm(range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)]))):
         for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
             
             images = to_var(images, volatile=True)
@@ -78,14 +78,14 @@ def main(args):
             wrong_captions = to_var(wrong_captions)
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
-            if epoch < args.gen_pretrain_num_epochs:
+            if epoch < int(args.gen_pretrain_num_epochs):
                 generator.zero_grad()
                 outputs = generator(images, captions, lengths)
                 loss = mle_criterion(outputs, targets)
                 loss.backward()
                 optimizer_gen.step()
 
-            if epoch < args.disc_pretrain_num_epochs:
+            if epoch < int(args.disc_pretrain_num_epochs):
                 discriminator.zero_grad()
                 rewards_real = discriminator(images, captions, lengths)
                 # rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
@@ -99,6 +99,9 @@ def main(args):
                 loss_disc.backward()
                 optimizer_disc.step()
 
+    torch.save(discriminator.state_dict(), os.path.join(args.model_path, 'pretrained-discriminator-%d.pkl' %int(args.disc_pretrain_num_epochs)))
+    torch.save(generator.state_dict(), os.path.join(args.model_path, 'pretrained-generator-%d.pkl' %int(args.gen_pretrain_num_epochs)))
+    
     plt.plot(disc_losses, label='pretraining_disc_loss')
     plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
     plt.clf()

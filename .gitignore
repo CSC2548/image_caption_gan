@@ -1,8 +1,10 @@
 data/
 models/
 birds_models/
+birds_gan_models/
 historic_models/
 __pycache__/
 png/
 .vscode/
 *.png
+figures/

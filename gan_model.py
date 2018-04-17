@@ -43,8 +43,8 @@ class Generator(nn.Module):
     def forward(self, images, captions, lengths):
         """Getting captions"""
         features = self.encoder(images)
-        outputs = self.decoder(features, captions, lengths, noise=True) # (packed_size, vocab_size)
-        outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
+        outputs = self.decoder(features, captions, lengths, noise=False) # TODO (packed_size, vocab_size)
+        # outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
         return outputs
 
 
