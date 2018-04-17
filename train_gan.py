@@ -27,6 +27,9 @@ def main(args):
     if not os.path.exists(args.model_path):
         os.makedirs(args.model_path)
     
+    if not os.path.exists(args.figure_path):
+        os.makedirs(args.figure_path)
+    
     # Image preprocessing
     # For normalization, see https://github.com/pytorch/vision#models
     transform = transforms.Compose([ 
@@ -64,10 +67,44 @@ def main(args):
     params_disc = list(discriminator.parameters())
     optimizer_disc = torch.optim.Adam(params_disc)
 
-    # Pre-training
+    # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
     total_steps = len(data_loader)
     disc_losses = []
+    for epoch in range(max[args.gen_pretrain_num_epochs, args.disc_pretrain_num_epochs]):
+        for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
+            
+            images = to_var(images, volatile=True)
+            captions = to_var(captions)
+            wrong_captions = to_var(wrong_captions)
+            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
+            if epoch < args.gen_pretrain_num_epochs:
+                generator.zero_grad()
+                outputs = generator(images, captions, lengths)
+                loss = mle_criterion(outputs, targets)
+                loss.backward()
+                optimizer_gen.step()
+
+            if epoch < args.disc_pretrain_num_epochs:
+                discriminator.zero_grad()
+                rewards_real = discriminator(images, captions, lengths)
+                # rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
+                rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
+                real_loss = -torch.mean(torch.log(rewards_real))
+                # fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
+                wrong_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_wrong), min=-1000))
+                loss_disc = real_loss + wrong_loss # + fake_loss, no fake_loss because this is pretraining
+
+                disc_losses.append(loss_disc.cpu().data.numpy()[0])
+                loss_disc.backward()
+                optimizer_disc.step()
+
+    plt.plot(disc_losses, label='pretraining_disc_loss')
+    plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
+    plt.clf()
+
+    # Skip the rest for now
+    return
 
     # Train the Models
     total_step = len(data_loader)
@@ -203,6 +240,12 @@ if __name__ == '__main__':
     # jm: not mentioned in paper what they should be...
     parser.add_argument('--disc_alpha', type=float, default=0)
     parser.add_argument('--disc_beta', type=float, default=0.5)
+    parser.add_argument('--gen_pretrain_num_epochs', type=int, default=20)
+    parser.add_argument('--disc_pretrain_num_epochs', type=int, default=5)
+
+    # dirs
+    parser.add_argument('--figure_path', type=str, default='./figures/' ,
+                        help='path for figures')
     args = parser.parse_args()
     print(args)
     main(args)
