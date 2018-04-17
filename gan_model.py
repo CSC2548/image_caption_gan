@@ -62,5 +62,5 @@ class Generator(nn.Module):
             return None
 
         Tmax = gen_samples.size(1)
-        outputs, packed_lengths = self.decoder.rollout(self.features, gen_samples, t, Tmax)
-        pdb.set_trace()
+        sampled_ids = self.decoder.rollout(self.features, gen_samples, t, Tmax)
+        return sampled_ids

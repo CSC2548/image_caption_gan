@@ -7,7 +7,7 @@ import os
 from torch.autograd import Variable 
 from torchvision import transforms 
 from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN
+from gan_encoder_decoder_model import EncoderCNN, DecoderRNN
 from PIL import Image
 import pdb
 

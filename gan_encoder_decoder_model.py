@@ -4,6 +4,7 @@ import torchvision.models as models
 from torch.nn.utils.rnn import *
 from torch.autograd import Variable
 import pdb
+from tqdm import tqdm
 
 class EncoderCNN(nn.Module):
     def __init__(self, embed_size):
@@ -109,15 +110,18 @@ class DecoderRNN(nn.Module):
         """
         sampled_ids = []
         inputs = features.unsqueeze(1) # (b, 1, e)
+        if torch.cuda.is_available():
+            gen_samples = gen_samples.type(torch.cuda.LongTensor)
+        else:
+            gen_samples = gen_samples.type(torch.LongTensor)
         forced_inputs = gen_samples[:,:t+1]
-
-        for i in range(t):
+        for i in tqdm(range(t)):
             hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
-            inputs = forced_inputs[:,i]
+            inputs = self.embed(forced_inputs[:,i])
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
 
-        for i in range(t+1, Tmax):                                 # maximum sampling length
+        for i in tqdm(range(t+1, Tmax)):                                 # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
             outputs = self.linear(hiddens.squeeze(1))            # outputs = (b, V)
             predicted = outputs.max(1)[1]
@@ -133,5 +137,5 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
         sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)
-        sampled_ids = sampled_ids.view(-1, 20)
+        sampled_ids = sampled_ids.view(-1, Tmax-t-1)
         return sampled_ids

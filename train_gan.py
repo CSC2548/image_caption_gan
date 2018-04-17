@@ -165,7 +165,7 @@ def main(args):
             outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
 
             Tmax = outputs[0].size(1)
-            gen_samples = torch.zeros((args.batch_size, Tmax))
+            gen_samples = to_var(torch.zeros((args.batch_size, Tmax)))
             
             # getting rewards from disc
             for t in range(2, Tmax):
