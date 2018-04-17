@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import *
 from torch.autograd import Variable
 import pdb
 
@@ -60,6 +60,7 @@ class DecoderRNN(nn.Module):
     def forward(self, features, captions, lengths, noise=False):
         """Decode image feature vectors and generates captions."""
         # TODO: should not use all teacher forcing
+        # return: outputs (s, V), lengths list(Tmax)
         embeddings = self.embed(captions)
         if not noise:
             embeddings = torch.cat((features.unsqueeze(1), embeddings), 1)
@@ -73,7 +74,7 @@ class DecoderRNN(nn.Module):
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])
         outputs = self.softmax(outputs)
-        return outputs
+        return outputs, hiddens[1]
     
     def sample(self, features, states=None):
         """Samples captions for given image features (Greedy search)."""
@@ -95,4 +96,42 @@ class DecoderRNN(nn.Module):
         sampled_ids = sampled_ids.view(-1, 20)
         # return sampled_ids.squeeze()
         # pdb.set_trace()
+        return sampled_ids
+
+    def rollout(self, features, gen_samples, t, Tmax, states=None):
+        """
+            sample caption from a specific time t
+
+            features = (b, e)
+            t = scalar
+            Tmax = scalar
+            states = cell states = tuple
+        """
+        sampled_ids = []
+        inputs = features.unsqueeze(1) # (b, 1, e)
+        forced_inputs = gen_samples[:,:t+1]
+
+        for i in range(t):
+            hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
+            inputs = forced_inputs[:,i]
+            inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
+
+
+        for i in range(t+1, Tmax):                                 # maximum sampling length
+            hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
+            outputs = self.linear(hiddens.squeeze(1))            # outputs = (b, V)
+            predicted = outputs.max(1)[1]
+
+            # pdb.set_trace()
+            # TODO maybe need to sample?
+            # outputs = self.softmax(outputs)
+            # predicted_index = outputs.multinomial(1)
+            # predicted = outputs[predicted_index]
+
+            sampled_ids.append(predicted)
+            inputs = self.embed(predicted)
+            inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
+
+        sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)
+        sampled_ids = sampled_ids.view(-1, 20)
         return sampled_ids

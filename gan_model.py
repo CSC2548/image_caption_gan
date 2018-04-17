@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.autograd import Variable
-from torch.nn.utils.rnn import pack_padded_sequence
-from torch.nn.utils.rnn import pad_packed_sequence
+from torch.nn.utils.rnn import *
 from gan_encoder_decoder_model import EncoderCNN
 from gan_encoder_decoder_model import DecoderRNN
 import pdb
@@ -39,12 +38,29 @@ class Generator(nn.Module):
         super(Generator, self).__init__()
         self.encoder = EncoderCNN(embed_size)
         self.decoder = DecoderRNN(embed_size, hidden_size, vocab_size, num_layers)
+        self.features = None
 
     def forward(self, images, captions, lengths):
         """Getting captions"""
-        features = self.encoder(images)
-        outputs = self.decoder(features, captions, lengths, noise=False) # TODO (packed_size, vocab_size)
+        self.features = self.encoder(images)
+        outputs, packed_lengths = self.decoder(self.features, captions, lengths, noise=False) # TODO (packed_size, vocab_size)
+        # outputs = PackedSequence(outputs, packed_lengths)
         # outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
-        return outputs
+        return outputs, packed_lengths
 
+    def rollout(self, gen_samples, t):
+        """ inputs:
+                * gen_samples: (b, Tmax)
+                * t: scalar
 
+            outputs:
+                * gen_rollouts: (b, Tmax - t)
+                * lengths_rollouts: list (b)
+        """
+        if self.features is None:
+            print('must do forward before calling this function')
+            return None
+
+        Tmax = gen_samples.size(1)
+        outputs, packed_lengths = self.decoder.rollout(self.features, gen_samples, t, Tmax)
+        pdb.set_trace()

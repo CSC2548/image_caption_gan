@@ -7,7 +7,7 @@ import pickle
 from data_loader_gan import get_loader
 from build_vocab import Vocabulary
 from torch.autograd import Variable 
-from torch.nn.utils.rnn import pack_padded_sequence
+from torch.nn.utils.rnn import *
 from torchvision import transforms
 from gan_model import Discriminator
 from gan_model import Generator
@@ -16,6 +16,14 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pdb
 from tqdm import tqdm
+
+"""
+note: 
+    vocab.idx2word[0] = <pad>
+    vocab.idx2word[1] = <start>
+    vocab.idx2word[2] = <end>
+    vocab.idx2word[3] = <unk>
+"""
 
 def to_var(x, volatile=False):
     if torch.cuda.is_available():
@@ -67,47 +75,50 @@ def main(args):
     params_disc = list(discriminator.parameters())
     optimizer_disc = torch.optim.Adam(params_disc)
 
-    # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
-    total_steps = len(data_loader)
-    disc_losses = []
-    for epoch in tqdm(range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)]))):
-        for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
-            
-            images = to_var(images, volatile=True)
-            captions = to_var(captions)
-            wrong_captions = to_var(wrong_captions)
-            targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
+    if args.pretraining:
+        # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
+        total_steps = len(data_loader)
+        disc_losses = []
+        for epoch in tqdm(range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)]))):
+            for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
+                
+                images = to_var(images, volatile=True)
+                captions = to_var(captions)
+                wrong_captions = to_var(wrong_captions)
+                targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
 
-            if epoch < int(args.gen_pretrain_num_epochs):
-                generator.zero_grad()
-                outputs = generator(images, captions, lengths)
-                loss = mle_criterion(outputs, targets)
-                loss.backward()
-                optimizer_gen.step()
+                if epoch < int(args.gen_pretrain_num_epochs):
+                    generator.zero_grad()
+                    outputs, _ = generator(images, captions, lengths)
+                    loss = mle_criterion(outputs, targets)
+                    loss.backward()
+                    optimizer_gen.step()
 
-            if epoch < int(args.disc_pretrain_num_epochs):
-                discriminator.zero_grad()
-                rewards_real = discriminator(images, captions, lengths)
-                # rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
-                rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
-                real_loss = -torch.mean(torch.log(rewards_real))
-                # fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
-                wrong_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_wrong), min=-1000))
-                loss_disc = real_loss + wrong_loss # + fake_loss, no fake_loss because this is pretraining
+                if epoch < int(args.disc_pretrain_num_epochs):
+                    discriminator.zero_grad()
+                    rewards_real = discriminator(images, captions, lengths)
+                    # rewards_fake = discriminator(images, sampled_captions, sampled_lengths) 
+                    rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
+                    real_loss = -torch.mean(torch.log(rewards_real))
+                    # fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
+                    wrong_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_wrong), min=-1000))
+                    loss_disc = real_loss + wrong_loss # + fake_loss, no fake_loss because this is pretraining
 
-                disc_losses.append(loss_disc.cpu().data.numpy()[0])
-                loss_disc.backward()
-                optimizer_disc.step()
+                    disc_losses.append(loss_disc.cpu().data.numpy()[0])
+                    loss_disc.backward()
+                    optimizer_disc.step()
+        
+        # Save pretrained models
+        torch.save(discriminator.state_dict(), os.path.join(args.model_path, 'pretrained-discriminator-%d.pkl' %int(args.disc_pretrain_num_epochs)))
+        torch.save(generator.state_dict(), os.path.join(args.model_path, 'pretrained-generator-%d.pkl' %int(args.gen_pretrain_num_epochs)))
 
-    torch.save(discriminator.state_dict(), os.path.join(args.model_path, 'pretrained-discriminator-%d.pkl' %int(args.disc_pretrain_num_epochs)))
-    torch.save(generator.state_dict(), os.path.join(args.model_path, 'pretrained-generator-%d.pkl' %int(args.gen_pretrain_num_epochs)))
-    
-    plt.plot(disc_losses, label='pretraining_disc_loss')
-    plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
-    plt.clf()
+        # Plot pretraining figures
+        plt.plot(disc_losses, label='pretraining_disc_loss')
+        plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
+        plt.clf()
 
-    # Skip the rest for now
-    return
+    # # Skip the rest for now
+    # return
 
     # Train the Models
     total_step = len(data_loader)
@@ -149,20 +160,32 @@ def main(args):
             # optimizer.step()
 
             generator.zero_grad()
-            outputs = generator(images, captions, lengths) # not (b, T, V), (s, V)
+            outputs, packed_lengths = generator(images, captions, lengths)
+            outputs = PackedSequence(outputs, packed_lengths)
+            outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
+
             Tmax = outputs[0].size(1)
             gen_samples = torch.zeros((args.batch_size, Tmax))
+            
             # getting rewards from disc
-            for t in range(Tmax):
-                gen_samples[:,:t-1] = captions[:,:t-1]
-                for v in range(len(vocab)):
+            for t in range(2, Tmax):
+                if t >= min(lengths): # TODO this makes things easier, but could min(lengths) could be too short
+                    break
+
+                # part 1: taken from real caption
+                gen_samples[:,:t-1] = captions[:,:t-1].data
+                for v in range(4, len(vocab)):
+                    # part 2: taken from all possible vocabs
                     gen_samples[:,t] = v
-                    gen_samples[:,t:] = generator.rollout()
+                    # part 3: taken from rollouts
+                    gen_samples[:,t:], sampled_lengths = generator.rollout(gen_samples, t)
                     rewards = discriminator(images, gen_samples, sampled_lengths)
             
-            loss = - outputs * rewards
-            
+            loss_gen = -outputs * rewards
+            loss_gen.backward()
+            optimizer_gen.step()
 
+            # TODO get sampled_captions
 
             # Train discriminator
             discriminator.zero_grad()
@@ -249,6 +272,9 @@ if __name__ == '__main__':
     # dirs
     parser.add_argument('--figure_path', type=str, default='./figures/' ,
                         help='path for figures')
+
+    # debuggin
+    parser.add_argument('--pretraining', type=bool, default=False)
     args = parser.parse_args()
     print(args)
     main(args)
