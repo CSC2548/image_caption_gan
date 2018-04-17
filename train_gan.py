@@ -165,27 +165,63 @@ def main(args):
             outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
 
             Tmax = outputs[0].size(1)
-            gen_samples = to_var(torch.zeros((args.batch_size, Tmax)))
-            
+            rewards = torch.zeros_like(outputs[0]).type(torch.LongTensor)
+
             # getting rewards from disc
             for t in range(2, Tmax):
+            # for t in range(2, 4):
                 if t >= min(lengths): # TODO this makes things easier, but could min(lengths) could be too short
                     break
 
+                gen_samples = to_var(torch.zeros((args.batch_size, Tmax)).type(torch.LongTensor))
                 # part 1: taken from real caption
                 gen_samples[:,:t-1] = captions[:,:t-1].data
                 for v in range(4, len(vocab)):
+                # for v in range(4, 5):
                     # part 2: taken from all possible vocabs
                     gen_samples[:,t] = v
                     # part 3: taken from rollouts
-                    gen_samples[:,t:], sampled_lengths = generator.rollout(gen_samples, t)
-                    rewards = discriminator(images, gen_samples, sampled_lengths)
+                    gen_samples[:,t+1:] = generator.rollout(gen_samples, t)
+
+                    sampled_lengths = []
+                    # finding sampled_lengths
+                    for batch in range(int(args.batch_size)):
+                        for b_t in range(Tmax):
+                            if gen_samples[batch, b_t].data.numpy()[0] == 2: # <end>
+                                sampled_lengths.append(b_t+1)
+                                break
+                            elif b_t == Tmax-1:
+                                sampled_lengths.append(Tmax)
+
+                    # sort sampled_lengths
+                    sampled_lengths = np.array(sampled_lengths)
+                    sampled_lengths[::-1].sort()
+                    sampled_lengths = sampled_lengths.tolist()
+                    
+                    # get rewards from disc
+                    rewards[:,t,v] = discriminator(images, gen_samples, sampled_lengths)
             
-            loss_gen = -outputs * rewards
+            pdb.set_trace()
+            loss_gen = torch.dot(outputs[0], -rewards)
             loss_gen.backward()
             optimizer_gen.step()
 
             # TODO get sampled_captions
+            sampled_ids = generator.sample()
+            sampled_captions = torch.zeros_like(sampled_ids).type(torch.LongTensor)
+            # finding sampled_lengths
+            for batch in range(int(args.batch_size)):
+                for b_t in range(20):
+                    sampled_captions[batch, b_t].data = vocab.idx2word[sampled_ids[batch, b_t]]
+                    if sampled_ids[batch, b_t].data.numpy()[0] == 2: # <end>
+                        sampled_lengths.append(b_t+1)
+                        break
+                    elif b_t == Tmax-1:
+                        sampled_lengths.append(20)
+            # sort sampled_lengths
+            sampled_lengths = np.array(sampled_lengths)
+            sampled_lengths[::-1].sort()
+            sampled_lengths = sampled_lengths.tolist()
 
             # Train discriminator
             discriminator.zero_grad()

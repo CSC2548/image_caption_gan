@@ -64,3 +64,7 @@ class Generator(nn.Module):
         Tmax = gen_samples.size(1)
         sampled_ids = self.decoder.rollout(self.features, gen_samples, t, Tmax)
         return sampled_ids
+
+    def sample(self, states=None):
+        return self.decoder.sample(self.features, states)
+
