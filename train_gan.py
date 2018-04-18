@@ -127,7 +127,7 @@ def main(args):
         for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
 
             # Set mini-batch dataset
-            images = to_var(images, volatile=True)
+            images = to_var(images)
             captions = to_var(captions)
             wrong_captions = to_var(wrong_captions)
 
@@ -165,29 +165,38 @@ def main(args):
             outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
 
             Tmax = outputs[0].size(1)
-            rewards = torch.zeros_like(outputs[0]).type(torch.LongTensor)
+            if torch.cuda.is_available():
+                rewards = torch.zeros_like(outputs[0]).type(torch.cuda.FloatTensor)
+            else:
+                rewards = torch.zeros_like(outputs[0]).type(torch.FloatTensor)
 
+            # images.volatile = True
+            # captions.volatile = True
+            # wrong_captions.volatile = True
             # getting rewards from disc
-            for t in range(2, Tmax):
+            for t in tqdm(range(2, Tmax, 4)):
             # for t in range(2, 4):
                 if t >= min(lengths): # TODO this makes things easier, but could min(lengths) could be too short
                     break
 
-                gen_samples = to_var(torch.zeros((args.batch_size, Tmax)).type(torch.LongTensor))
+                gen_samples = to_var(torch.zeros((args.batch_size, Tmax)).type(torch.FloatTensor), volatile=True)
                 # part 1: taken from real caption
                 gen_samples[:,:t-1] = captions[:,:t-1].data
-                for v in range(4, len(vocab)):
+                for v in tqdm(range(4, len(vocab))):
                 # for v in range(4, 5):
                     # part 2: taken from all possible vocabs
                     gen_samples[:,t] = v
                     # part 3: taken from rollouts
+                    # images.volatile = False
+                    # captions.volatile = False
+                    # wrong_captions.volatile = False
                     gen_samples[:,t+1:] = generator.rollout(gen_samples, t)
 
                     sampled_lengths = []
                     # finding sampled_lengths
                     for batch in range(int(args.batch_size)):
                         for b_t in range(Tmax):
-                            if gen_samples[batch, b_t].data.numpy()[0] == 2: # <end>
+                            if gen_samples[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
                                 sampled_lengths.append(b_t+1)
                                 break
                             elif b_t == Tmax-1:
@@ -199,24 +208,29 @@ def main(args):
                     sampled_lengths = sampled_lengths.tolist()
                     
                     # get rewards from disc
-                    rewards[:,t,v] = discriminator(images, gen_samples, sampled_lengths)
-            
-            pdb.set_trace()
-            loss_gen = torch.dot(outputs[0], -rewards)
+                    rewards[:,t,v] = discriminator(images, gen_samples.detach(), sampled_lengths)
+
+            # rewards = rewards.detach()
+            # pdb.set_trace()
+            rewards_detached = rewards.data
+            rewards_detached = to_var(rewards_detached)
+            loss_gen = torch.dot(outputs[0], -rewards_detached)
             loss_gen.backward()
             optimizer_gen.step()
 
             # TODO get sampled_captions
             sampled_ids = generator.sample()
-            sampled_captions = torch.zeros_like(sampled_ids).type(torch.LongTensor)
+            # sampled_captions = torch.zeros_like(sampled_ids).type(torch.LongTensor)
+            sampled_lengths = []
             # finding sampled_lengths
             for batch in range(int(args.batch_size)):
                 for b_t in range(20):
-                    sampled_captions[batch, b_t].data = vocab.idx2word[sampled_ids[batch, b_t]]
-                    if sampled_ids[batch, b_t].data.numpy()[0] == 2: # <end>
+                    #pdb.set_trace()
+                    #sampled_captions[batch, b_t].data = sampled_ids[batch, b_t].cpu().data.numpy()[0]
+                    if sampled_ids[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
                         sampled_lengths.append(b_t+1)
                         break
-                    elif b_t == Tmax-1:
+                    elif b_t == 20-1:
                         sampled_lengths.append(20)
             # sort sampled_lengths
             sampled_lengths = np.array(sampled_lengths)
@@ -225,8 +239,11 @@ def main(args):
 
             # Train discriminator
             discriminator.zero_grad()
+            images.volatile = False
+            captions.volatile = False
+            wrong_captions.volatile = False
             rewards_real = discriminator(images, captions, lengths)
-            rewards_fake = discriminator(images, sampled_captions, sampled_lengths)
+            rewards_fake = discriminator(images, sampled_ids, sampled_lengths)
             rewards_wrong = discriminator(images, wrong_captions, wrong_lengths)
             real_loss = -torch.mean(torch.log(rewards_real))
             fake_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_fake), min=-1000))
@@ -239,9 +256,9 @@ def main(args):
 
             # Print log info
             if i % args.log_step == 0:
-                print('Epoch [%d/%d], Step [%d/%d], Loss: %.4f, Perplexity: %5.4f'
+                print('Epoch [%d/%d], Step [%d/%d], Disc Loss: %.4f, Gen Loss: %.4f'
                       %(epoch, args.num_epochs, i, total_step, 
-                        loss.data[0], np.exp(loss.data[0]))) 
+                        loss_disc.data[0], loss_gen.data[0])) 
                 
             # Save the models
             # if (i+1) % args.save_step == 0:

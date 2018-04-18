@@ -115,13 +115,13 @@ class DecoderRNN(nn.Module):
         else:
             gen_samples = gen_samples.type(torch.LongTensor)
         forced_inputs = gen_samples[:,:t+1]
-        for i in tqdm(range(t)):
+        for i in range(t):
             hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
             inputs = self.embed(forced_inputs[:,i])
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
 
-        for i in tqdm(range(t+1, Tmax)):                                 # maximum sampling length
+        for i in range(t+1, Tmax):                                 # maximum sampling length
             hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
             outputs = self.linear(hiddens.squeeze(1))            # outputs = (b, V)
             predicted = outputs.max(1)[1]

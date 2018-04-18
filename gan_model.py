@@ -19,7 +19,10 @@ class Discriminator(nn.Module):
         # print(captions)
         features = self.image_feature_encoder(images) #(batch_size=128, embed_size=256)
 
-        embeddings = self.embed(captions) # (batch_size, embed_size)
+        if torch.cuda.is_available(): 
+            embeddings = self.embed(captions.type(torch.cuda.LongTensor)) # (batch_size, embed_size)
+        else:
+            embeddings = self.embed(captions.type(torch.LongTensor)) # (batch_size, embed_size)
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.sentence_feature_encoder(packed)
 
