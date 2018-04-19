@@ -38,7 +38,8 @@ def build_vocab(filepath, threshold):
             with open(os.path.join(subdir, caption_file), 'r') as f:
                 captions = f.readlines()
                 for caption in captions:
-                    caption = str(caption.encode('ascii', 'ignore'))
+                    caption = caption.encode('ascii', 'ignore')
+                    caption = caption.decode('ascii')
                     caption = re.sub(r'[!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', '', caption)
                     tokens = nltk.tokenize.word_tokenize(caption.lower())
                     counter.update(tokens)
@@ -75,9 +76,9 @@ if __name__ == '__main__':
                         # default='./data/annotations/captions_train2014.json',
                         default='./data/birds_captions/',
                         help='path for train annotation file')
-    parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab.pkl', 
+    parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab_thresh_6.pkl', 
                         help='path for saving vocabulary wrapper')
-    parser.add_argument('--threshold', type=int, default=4, 
+    parser.add_argument('--threshold', type=int, default=6, 
                         help='minimum word count threshold')
     args = parser.parse_args()
     main(args)
