@@ -99,6 +99,30 @@ class DecoderRNN(nn.Module):
         # pdb.set_trace()
         return sampled_ids
 
+
+    def pre_compute(self, features, gen_samples, eval_t, states=None):
+        
+        best_sample_nums = 5 # number of vocabs to sample
+
+        inputs = features.unsqueeze(1) # (b, 1, e)
+        if torch.cuda.is_available():
+            gen_samples = gen_samples.type(torch.cuda.LongTensor)
+        else:
+            gen_samples = gen_samples.type(torch.LongTensor)
+        forced_inputs = gen_samples[:,:eval_t]
+
+        for i in range(eval_t):
+            hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
+            inputs = self.embed(forced_inputs[:,i])
+            inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
+
+        outputs = self.linear(hiddens.squeeze(1))
+        outputs = self.softmax(outputs)
+        predicted_indices = outputs.multinomial(best_sample_nums)
+
+        return predicted_indices, states
+
+
     def rollout(self, features, gen_samples, t, Tmax, states=None):
         """
             sample caption from a specific time t
@@ -109,19 +133,20 @@ class DecoderRNN(nn.Module):
             states = cell states = tuple
         """
         sampled_ids = []
-        inputs = features.unsqueeze(1) # (b, 1, e)
+        # inputs = features.unsqueeze(1) # (b, 1, e)
         if torch.cuda.is_available():
             gen_samples = gen_samples.type(torch.cuda.LongTensor)
         else:
             gen_samples = gen_samples.type(torch.LongTensor)
-        forced_inputs = gen_samples[:,:t+1]
-        for i in range(t):
-            hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
-            inputs = self.embed(forced_inputs[:,i])
-            inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
+        # forced_inputs = gen_samples[:,:t+1]
+        # for i in range(t):
+        #     hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
+        #     inputs = self.embed(forced_inputs[:,i])
+        #     inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
-
-        for i in range(t+1, Tmax):                                 # maximum sampling length
+        inputs = self.embed(gen_samples[:,t]).unsqueeze(1)
+        for i in range(t, Tmax):                                 # maximum sampling length
+            # pdb.set_trace()
             hiddens, states = self.lstm(inputs, states)          # hiddens = (b, 1, h)
             outputs = self.linear(hiddens.squeeze(1))            # outputs = (b, V)
             predicted = outputs.max(1)[1]
@@ -137,5 +162,6 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
         sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)
-        sampled_ids = sampled_ids.view(-1, Tmax-t-1)
+        # pdb.set_trace()
+        sampled_ids = sampled_ids.view(-1, Tmax-t)
         return sampled_ids

@@ -131,34 +131,6 @@ def main(args):
             captions = to_var(captions)
             wrong_captions = to_var(wrong_captions)
 
-            # Forward, Backward and Optimize
-            # decoder.zero_grad()
-            # encoder.zero_grad()
-            # features = encoder(images)
-            # outputs = decoder(features, captions, lengths)
-            
-            # sampled_captions = decoder.sample(features)
-            # sampled_captions = torch.zeros_like(sampled_ids)
-            # sampled_lengths = []
-
-            # for row in range(sampled_captions.size(0)):
-            #     for index, word_id in enumerate(sampled_captions[row,:]):
-            #         # pdb.set_trace()
-            #         word = vocab.idx2word[word_id.cpu().data.numpy()[0]]
-            #         # sampled_captions[row, index].data = word
-            #         if word == '<end>':
-            #             sampled_lengths.append(index+1)
-            #             break
-            #         elif index == sampled_captions.size(1)-1:
-            #             sampled_lengths.append(sampled_captions.size(1))
-            #             break
-            # sampled_lengths = np.array(sampled_lengths)
-            # sampled_lengths[::-1].sort()
-            # sampled_lengths = sampled_lengths.tolist()
-            # loss = criterion(outputs, targets)
-            # loss.backward()
-            # optimizer.step()
-
             generator.zero_grad()
             outputs, packed_lengths = generator(images, captions, lengths)
             outputs = PackedSequence(outputs, packed_lengths)
@@ -170,9 +142,6 @@ def main(args):
             else:
                 rewards = torch.zeros_like(outputs[0]).type(torch.FloatTensor)
 
-            # images.volatile = True
-            # captions.volatile = True
-            # wrong_captions.volatile = True
             # getting rewards from disc
             for t in tqdm(range(2, Tmax, 4)):
             # for t in range(2, 4):
@@ -181,14 +150,15 @@ def main(args):
 
                 gen_samples = to_var(torch.zeros((args.batch_size, Tmax)).type(torch.FloatTensor), volatile=True)
                 # part 1: taken from real caption
-                gen_samples[:,:t-1] = captions[:,:t-1].data
-                for v in tqdm(range(4, len(vocab))):
-                # for v in range(4, 5):
-                    # part 2: taken from all possible vocabs
-                    gen_samples[:,t] = v
-                    # part 3: taken from rollouts
-                    gen_samples[:,t+1:] = generator.rollout(gen_samples, t)
+                gen_samples[:,:t] = captions[:,:t].data
 
+                predicted_ids, saved_states = generator.pre_compute(gen_samples, t)
+                for v in range(predicted_ids.size(1)):
+                    # part 2: taken from all possible vocabs
+                    gen_samples[:,t] = predicted_ids[:,v]
+                    # part 3: taken from rollouts
+                    gen_samples[:,t:] = generator.rollout(gen_samples, t, saved_states)
+                    
                     sampled_lengths = []
                     # finding sampled_lengths
                     for batch in range(int(args.batch_size)):
@@ -206,6 +176,31 @@ def main(args):
                     
                     # get rewards from disc
                     rewards[:,t,v] = discriminator(images, gen_samples.detach(), sampled_lengths)
+
+                # for v in tqdm(range(4, len(vocab))):
+                # # for v in range(4, 5):
+                #     # part 2: taken from all possible vocabs
+                #     gen_samples[:,t] = v
+                #     # part 3: taken from rollouts
+                #     gen_samples[:,t+1:] = generator.rollout(gen_samples, t)
+
+                #     sampled_lengths = []
+                #     # finding sampled_lengths
+                #     for batch in range(int(args.batch_size)):
+                #         for b_t in range(Tmax):
+                #             if gen_samples[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
+                #                 sampled_lengths.append(b_t+1)
+                #                 break
+                #             elif b_t == Tmax-1:
+                #                 sampled_lengths.append(Tmax)
+
+                #     # sort sampled_lengths
+                #     sampled_lengths = np.array(sampled_lengths)
+                #     sampled_lengths[::-1].sort()
+                #     sampled_lengths = sampled_lengths.tolist()
+                    
+                #     # get rewards from disc
+                #     rewards[:,t,v] = discriminator(images, gen_samples.detach(), sampled_lengths)
 
             # rewards = rewards.detach()
             # pdb.set_trace()
@@ -260,15 +255,12 @@ def main(args):
             # Save the models
             # if (i+1) % args.save_step == 0:
             if (i+1) % total_step == 0: # jm: saving at the last iteration instead
-                torch.save(decoder.state_dict(), 
+                torch.save(generator.state_dict(), 
                            os.path.join(args.model_path, 
-                                        'decoder-%d-%d.pkl' %(epoch+1, i+1)))
-                torch.save(encoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'encoder-%d-%d.pkl' %(epoch+1, i+1)))
+                                        'generator-gan-%d-%d.pkl' %(epoch+1, i+1)))
                 torch.save(discriminator.state_dict(), 
                            os.path.join(args.model_path, 
-                                        'discriminator-%d-%d.pkl' %(epoch+1, i+1)))
+                                        'discriminator-gan-%d-%d.pkl' %(epoch+1, i+1)))
 
                 # plot at the end of every epoch
                 plt.plot(disc_losses, label='disc loss')

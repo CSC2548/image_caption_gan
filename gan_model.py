@@ -51,7 +51,19 @@ class Generator(nn.Module):
         # outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
         return outputs, packed_lengths
 
-    def rollout(self, gen_samples, t):
+
+    def pre_compute(self, gen_samples, t):
+        """
+            pre compute the most likely vocabs and their states
+        """
+        if self.features is None:
+            print('must do forward before calling this function')
+            return None
+
+        predicted_ids, saved_states = self.decoder.pre_compute(self.features, gen_samples, t)
+        return predicted_ids, saved_states
+
+    def rollout(self, gen_samples, t, saved_states):
         """ inputs:
                 * gen_samples: (b, Tmax)
                 * t: scalar
@@ -65,7 +77,8 @@ class Generator(nn.Module):
             return None
 
         Tmax = gen_samples.size(1)
-        sampled_ids = self.decoder.rollout(self.features, gen_samples, t, Tmax)
+        sampled_ids = self.decoder.rollout(self.features, gen_samples, t, Tmax, states=saved_states)
+        # pdb.set_trace()
         return sampled_ids
 
     def sample(self, states=None):
