@@ -79,12 +79,13 @@ def main(args):
         # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
         total_steps = len(data_loader)
         disc_losses = []
+        gen_losses = []
         print('pre-training')
         for epoch in tqdm(range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)]))):
         # for epoch in range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)])):
             for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
                 
-                images = to_var(images, volatile=True)
+                images = to_var(images, volatile=False)
                 captions = to_var(captions)
                 wrong_captions = to_var(wrong_captions)
                 targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
@@ -93,6 +94,7 @@ def main(args):
                     generator.zero_grad()
                     outputs, _ = generator(images, captions, lengths)
                     loss = mle_criterion(outputs, targets)
+                    gen_losses.append(loss.cpu().data.numpy()[0])
                     loss.backward()
                     optimizer_gen.step()
 
@@ -119,17 +121,26 @@ def main(args):
         plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
         plt.clf()
 
+        plt.plot(losses, label='pretraining_gen_loss')
+        plt.savefig(args.figure_path + 'pretraining_gen_losses.png')
+        plt.clf()
+        
+    else:
+        generator.load_state_dict(torch.load(args.pretrained_gen_path))
+        discriminator.load_state_dict(torch.load(args.pretrained_disc_path))
+
     # # Skip the rest for now
     # return
 
     # Train the Models
     total_step = len(data_loader)
-    disc_losses = []
+    disc_gan_losses = []
+    gen_gan_losses= []
     for epoch in range(args.num_epochs):
         for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
 
             # Set mini-batch dataset
-            images = to_var(images)
+            images = to_var(images, volatile=True)
             captions = to_var(captions)
             wrong_captions = to_var(wrong_captions)
 
@@ -146,7 +157,7 @@ def main(args):
 
             # getting rewards from disc
 	    # for t in tqdm(range(2, Tmax, 4)):
-            for t in range(2, Tmax, 4):
+            for t in range(2, Tmax, 2):
             # for t in range(2, 4):
                 if t >= min(lengths): # TODO this makes things easier, but could min(lengths) could be too short
                     break
@@ -210,11 +221,12 @@ def main(args):
             rewards_detached = rewards.data
             rewards_detached = to_var(rewards_detached)
             loss_gen = torch.dot(outputs[0], -rewards_detached)
+            gen_gan_losses.append(loss_gen.cpu().data.numpy()[0])
             loss_gen.backward()
             optimizer_gen.step()
 
             # TODO get sampled_captions
-            sampled_ids = generator.sample()
+            sampled_ids = generator.sample(images)
             # sampled_captions = torch.zeros_like(sampled_ids).type(torch.LongTensor)
             sampled_lengths = []
             # finding sampled_lengths
@@ -245,7 +257,7 @@ def main(args):
             wrong_loss = -torch.mean(torch.clamp(torch.log(1 - rewards_wrong), min=-1000))
             loss_disc = real_loss + fake_loss + wrong_loss
 
-            disc_losses.append(loss_disc.cpu().data.numpy()[0])
+            disc_gan_losses.append(loss_disc.cpu().data.numpy()[0])
             loss_disc.backward()
             optimizer_disc.step()
 
@@ -266,8 +278,13 @@ def main(args):
                                         'discriminator-gan-%d-%d.pkl' %(epoch+1, i+1)))
 
                 # plot at the end of every epoch
-                plt.plot(disc_losses, label='disc loss')
-                plt.savefig(args.figure_path + 'disc_losses.png')
+                plt.plot(disc_gan_losses, label='disc gan loss')
+                plt.savefig(args.figure_path + 'disc_gan_losses.png')
+                plt.clf()
+
+                plt.plot(gen_gan_losses, label='gen gan loss')
+                plt.savefig(args.figure_path + 'gen_gan_losses.png')
+
                 plt.clf()
     
 
@@ -320,6 +337,8 @@ if __name__ == '__main__':
 
     # debuggin
     parser.add_argument('--pretraining', type=bool, default=True)
+    parser.add_argument('--pretrained_gen_path', type=str, default='./birds_gan_models/pretrained-generator-20.pkl')
+    parser.add_argument('--pretrained_disc_path', type=str, default='./birds_gan_models/pretrained-discriminator-5.pkl')
     args = parser.parse_args()
     print(args)
     main(args)
