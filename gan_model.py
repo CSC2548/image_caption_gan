@@ -81,6 +81,7 @@ class Generator(nn.Module):
         # pdb.set_trace()
         return sampled_ids
 
-    def sample(self, states=None):
-        return self.decoder.sample(self.features, states)
+    def sample(self, images, states=None):
+        features = self.encoder(images)
+        return self.decoder.sample(features, states)
 

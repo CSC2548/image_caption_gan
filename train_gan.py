@@ -79,7 +79,9 @@ def main(args):
         # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
         total_steps = len(data_loader)
         disc_losses = []
+        print('pre-training')
         for epoch in tqdm(range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)]))):
+        # for epoch in range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)])):
             for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
                 
                 images = to_var(images, volatile=True)
@@ -143,12 +145,13 @@ def main(args):
                 rewards = torch.zeros_like(outputs[0]).type(torch.FloatTensor)
 
             # getting rewards from disc
-            for t in tqdm(range(2, Tmax, 4)):
+	    # for t in tqdm(range(2, Tmax, 4)):
+            for t in range(2, Tmax, 4):
             # for t in range(2, 4):
                 if t >= min(lengths): # TODO this makes things easier, but could min(lengths) could be too short
                     break
 
-                gen_samples = to_var(torch.zeros((args.batch_size, Tmax)).type(torch.FloatTensor), volatile=True)
+                gen_samples = to_var(torch.zeros((captions.size(0), Tmax)).type(torch.FloatTensor), volatile=True)
                 # part 1: taken from real caption
                 gen_samples[:,:t] = captions[:,:t].data
 
@@ -161,7 +164,7 @@ def main(args):
                     
                     sampled_lengths = []
                     # finding sampled_lengths
-                    for batch in range(int(args.batch_size)):
+                    for batch in range(int(captions.size(0))):
                         for b_t in range(Tmax):
                             if gen_samples[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
                                 sampled_lengths.append(b_t+1)
@@ -215,7 +218,7 @@ def main(args):
             # sampled_captions = torch.zeros_like(sampled_ids).type(torch.LongTensor)
             sampled_lengths = []
             # finding sampled_lengths
-            for batch in range(int(args.batch_size)):
+            for batch in range(int(captions.size(0))):
                 for b_t in range(20):
                     #pdb.set_trace()
                     #sampled_captions[batch, b_t].data = sampled_ids[batch, b_t].cpu().data.numpy()[0]
@@ -247,7 +250,7 @@ def main(args):
             optimizer_disc.step()
 
             # Print log info
-            if i % args.log_step == 0:
+            if epoch % 2 == 0 and i % args.log_step == 0:
                 print('Epoch [%d/%d], Step [%d/%d], Disc Loss: %.4f, Gen Loss: %.4f'
                       %(epoch, args.num_epochs, i, total_step, 
                         loss_disc.data[0], loss_gen.data[0])) 
@@ -316,7 +319,7 @@ if __name__ == '__main__':
                         help='path for figures')
 
     # debuggin
-    parser.add_argument('--pretraining', type=bool, default=False)
+    parser.add_argument('--pretraining', type=bool, default=True)
     args = parser.parse_args()
     print(args)
     main(args)

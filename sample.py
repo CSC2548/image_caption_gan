@@ -7,7 +7,8 @@ import os
 from torch.autograd import Variable 
 from torchvision import transforms 
 from build_vocab import Vocabulary
-from gan_encoder_decoder_model import EncoderCNN, DecoderRNN
+# from gan_encoder_decoder_model import EncoderCNN, DecoderRNN
+from gan_model import Generator
 from PIL import Image
 import pdb
 
@@ -37,15 +38,16 @@ def main(args):
         vocab = pickle.load(f)
 
     # Build Models
-    encoder = EncoderCNN(args.embed_size)
-    encoder.eval()  # evaluation mode (BN uses moving mean/variance)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                         len(vocab), args.num_layers)
-    
-
+    # encoder = EncoderCNN(args.embed_size)
+    # encoder.eval()  # evaluation mode (BN uses moving mean/variance)
+    # decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+    #                     len(vocab), args.num_layers)
+    generator = Generator(args.embed_size, args.hidden_size, len(vocab), args.num_layers)
+    generator.encoder.eval()
     # Load the trained model parameters
-    encoder.load_state_dict(torch.load(args.encoder_path))
-    decoder.load_state_dict(torch.load(args.decoder_path))
+    # encoder.load_state_dict(torch.load(args.encoder_path))
+    # decoder.load_state_dict(torch.load(args.decoder_path))
+    generator.load_state_dict(torch.load(args.gen_path))
 
     # Prepare Image
     image = load_image(args.image, transform)
@@ -53,13 +55,15 @@ def main(args):
     
     # If use gpu
     if torch.cuda.is_available():
-        encoder.cuda()
-        decoder.cuda()
+        # encoder.cuda()
+        # decoder.cuda()
+        generator.cuda()
     
     # Generate caption from image
-    feature = encoder(image_tensor)
-    #pdb.set_trace()
-    sampled_ids = decoder.sample(feature)
+    # feature = encoder(image_tensor)
+    
+    # sampled_ids = decoder.sample(feature)
+    sampled_ids = generator.sample(image_tensor)
     sampled_ids = sampled_ids.cpu().data.numpy()[0]
     # Decode word_ids to words
     sampled_caption = []
@@ -84,7 +88,7 @@ if __name__ == '__main__':
                         help='path for trained encoder')
     parser.add_argument('--decoder_path', type=str, default='./models/decoder-5-3000.pkl',
                         help='path for trained decoder')
-    parser.add_argument('--vocab_path', type=str, default='./data/vocab.pkl',
+    parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab.pkl',
                         help='path for vocabulary wrapper')
     
     # Model parameters (should be same as paramters in train.py)
@@ -94,5 +98,6 @@ if __name__ == '__main__':
                         help='dimension of lstm hidden states')
     parser.add_argument('--num_layers', type=int , default=1 ,
                         help='number of layers in lstm')
+    parser.add_argument('--gen_path', type=str, default='./birds_gan_models/generator-gan-10-47.pkl')
     args = parser.parse_args()
     main(args)
