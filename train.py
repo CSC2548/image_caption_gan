@@ -107,7 +107,7 @@ if __name__ == '__main__':
                         help='path for train annotation json file')
     parser.add_argument('--log_step', type=int , default=10,
                         help='step size for prining log info')
-    parser.add_argument('--save_step', type=int , default=90,
+    parser.add_argument('--save_step', type=int , default=47,
                         help='step size for saving trained models')
     
     # Model parameters

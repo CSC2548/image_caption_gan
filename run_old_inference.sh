@@ -1,0 +1,1 @@
+python3 sample_old.py --image=./data/resized_CUB/images/132.White_crowned_Sparrow/White_Crowned_Sparrow_0047_127575.jpg --encoder_path=./birds_models/encoder-5-47.pkl --decoder_path=./birds_models/decoder-5-47.pkl --vocab_path=./data/birds_vocab.pkl

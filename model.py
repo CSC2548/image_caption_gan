@@ -71,7 +71,6 @@ class DecoderRNN(nn.Module):
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])
-        pdb.set_trace()
         return outputs
     
     def sample(self, features, states=None):
