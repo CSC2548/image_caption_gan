@@ -47,6 +47,7 @@ class Generator(nn.Module):
         """Getting captions"""
         self.features = self.encoder(images)
         outputs, packed_lengths = self.decoder(self.features, captions, lengths, noise=False) # TODO (packed_size, vocab_size)
+        # outputs = self.decoder(self.features, captions, lengths, noise=False) # TODO (packed_size, vocab_size)
         # outputs = PackedSequence(outputs, packed_lengths)
         # outputs = pad_packed_sequence(outputs, batch_first=True) # (b, T, V)
         return outputs, packed_lengths

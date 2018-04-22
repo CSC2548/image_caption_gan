@@ -74,7 +74,6 @@ class DecoderRNN(nn.Module):
         packed = pack_padded_sequence(embeddings, lengths, batch_first=True)
         hiddens, _ = self.lstm(packed)
         outputs = self.linear(hiddens[0])
-        outputs = self.softmax(outputs)
         return outputs, hiddens[1]
     
     def sample(self, features, states=None):

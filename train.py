@@ -4,9 +4,10 @@ import torch.nn as nn
 import numpy as np
 import os
 import pickle
-from data_loader import get_loader 
+from data_loader_gan import get_loader 
 from build_vocab import Vocabulary
-from model import EncoderCNN, DecoderRNN 
+# from model import EncoderCNN, DecoderRNN 
+from gan_model import Generator
 from torch.autograd import Variable 
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
@@ -41,23 +42,28 @@ def main(args):
                              shuffle=True, num_workers=args.num_workers) 
 
     # Build the models
-    encoder = EncoderCNN(args.embed_size)
-    decoder = DecoderRNN(args.embed_size, args.hidden_size, 
-                         len(vocab), args.num_layers)
+    # encoder = EncoderCNN(args.embed_size)
+    # decoder = DecoderRNN(args.embed_size, args.hidden_size, 
+    #                     len(vocab), args.num_layers)
     
+    generator = Generator(args.embed_size, args.hidden_size, len(vocab), args.num_layers)
+
     if torch.cuda.is_available():
-        encoder.cuda()
-        decoder.cuda()
+        # encoder.cuda()
+        # decoder.cuda()
+        generator.cuda()
 
     # Loss and Optimizer
     criterion = nn.CrossEntropyLoss()
-    params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
+    # params = list(decoder.parameters()) + list(encoder.linear.parameters()) + list(encoder.bn.parameters())
+    params = list(generator.parameters())
     optimizer = torch.optim.Adam(params, lr=args.learning_rate)
     
     # Train the Models
     total_step = len(data_loader)
     for epoch in range(args.num_epochs):
-        for i, (images, captions, lengths) in enumerate(data_loader):
+        # for i, (images, captions, lengths) in enumerate(data_loader):
+        for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):
             
             # Set mini-batch dataset
             images = to_var(images, volatile=True)
@@ -65,10 +71,12 @@ def main(args):
             targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
             
             # Forward, Backward and Optimize
-            decoder.zero_grad()
-            encoder.zero_grad()
-            features = encoder(images)
-            outputs = decoder(features, captions, lengths)
+            # decoder.zero_grad()
+            # encoder.zero_grad()
+            generator.zero_grad()
+            # features = encoder(images)
+            # outputs = decoder(features, captions, lengths)
+            outputs, _ = generator(images, captions, lengths)
             loss = criterion(outputs, targets)
             loss.backward()
             optimizer.step()
@@ -81,12 +89,13 @@ def main(args):
                 
             # Save the models
             if (i+1) % args.save_step == 0:
-                torch.save(decoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'decoder-%d-%d.pkl' %(epoch+1, i+1)))
-                torch.save(encoder.state_dict(), 
-                           os.path.join(args.model_path, 
-                                        'encoder-%d-%d.pkl' %(epoch+1, i+1)))
+                #torch.save(decoder.state_dict(), 
+                #           os.path.join(args.model_path, 
+                #                        'decoder-%d-%d.pkl' %(epoch+1, i+1)))
+                #torch.save(encoder.state_dict(), 
+                #           os.path.join(args.model_path, 
+                #                        'encoder-%d-%d.pkl' %(epoch+1, i+1)))
+                torch.save(generator.state_dict(), os.path.join(args.model_path, 'pretrained-generator-%d.pkl' %int(args.num_epochs)))
                 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
