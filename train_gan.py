@@ -85,7 +85,7 @@ def main(args):
         # for epoch in range(max([int(args.gen_pretrain_num_epochs), int(args.disc_pretrain_num_epochs)])):
             for i, (images, captions, lengths, wrong_captions, wrong_lengths) in enumerate(data_loader):            
                 
-                images = to_var(images, volatile=False)
+                images = to_var(images, volatile=True)
                 captions = to_var(captions)
                 wrong_captions = to_var(wrong_captions)
                 targets = pack_padded_sequence(captions, lengths, batch_first=True)[0]
@@ -93,9 +93,9 @@ def main(args):
                 if epoch < int(args.gen_pretrain_num_epochs):
                     generator.zero_grad()
                     outputs, _ = generator(images, captions, lengths)
-                    loss = mle_criterion(outputs, targets)
-                    gen_losses.append(loss.cpu().data.numpy()[0])
-                    loss.backward()
+                    loss_gen = mle_criterion(outputs, targets)
+                    gen_losses.append(loss_gen.cpu().data.numpy()[0])
+                    loss_gen.backward()
                     optimizer_gen.step()
 
                 if epoch < int(args.disc_pretrain_num_epochs):
@@ -121,7 +121,7 @@ def main(args):
         plt.savefig(args.figure_path + 'pretraining_disc_losses.png')
         plt.clf()
 
-        plt.plot(losses, label='pretraining_gen_loss')
+        plt.plot(gen_losses, label='pretraining_gen_loss')
         plt.savefig(args.figure_path + 'pretraining_gen_losses.png')
         plt.clf()
         
@@ -319,7 +319,7 @@ if __name__ == '__main__':
     parser.add_argument('--num_layers', type=int , default=1 ,
                         help='number of layers in lstm')
     
-    parser.add_argument('--num_epochs', type=int, default=10)
+    parser.add_argument('--num_epochs', type=int, default=4)
     parser.add_argument('--batch_size', type=int, default=128)
     parser.add_argument('--num_workers', type=int, default=4)
     parser.add_argument('--learning_rate', type=float, default=0.001)
@@ -328,8 +328,8 @@ if __name__ == '__main__':
     # jm: not mentioned in paper what they should be...
     parser.add_argument('--disc_alpha', type=float, default=0)
     parser.add_argument('--disc_beta', type=float, default=0.5)
-    parser.add_argument('--gen_pretrain_num_epochs', type=int, default=20)
-    parser.add_argument('--disc_pretrain_num_epochs', type=int, default=5)
+    parser.add_argument('--gen_pretrain_num_epochs', type=int, default=100)
+    parser.add_argument('--disc_pretrain_num_epochs', type=int, default=20)
 
     # dirs
     parser.add_argument('--figure_path', type=str, default='./figures/' ,
