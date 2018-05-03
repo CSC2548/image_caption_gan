@@ -168,30 +168,30 @@ def main(args):
                 gen_samples[:,:t] = captions[:,:t].data
 
                 predicted_ids, saved_states = generator.pre_compute(gen_samples, t)
-                for v in range(predicted_ids.size(1)):
-                    # part 2: taken from all possible vocabs
-                    gen_samples[:,t] = predicted_ids[:,v]
-                    # part 3: taken from rollouts
-                    gen_samples[:,t:] = generator.rollout(gen_samples, t, saved_states)
-                    
+                # for v in range(predicted_ids.size(1)):
+                v = predicted_ids[0]
+                # part 2: taken from all possible vocabs
+                gen_samples[:,t] = predicted_ids[:,v]
+                # part 3: taken from rollouts
+                gen_samples[:,t:] = generator.rollout(gen_samples, t, saved_states)
 
-                    sampled_lengths = []
-                    # finding sampled_lengths
-                    for batch in range(int(captions.size(0))):
-                        for b_t in range(Tmax):
-                            if gen_samples[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
-                                sampled_lengths.append(b_t+1)
-                                break
-                            elif b_t == Tmax-1:
-                                sampled_lengths.append(Tmax)
+                sampled_lengths = []
+                # finding sampled_lengths
+                for batch in range(int(captions.size(0))):
+                    for b_t in range(Tmax):
+                        if gen_samples[batch, b_t].cpu().data.numpy()[0] == 2: # <end>
+                            sampled_lengths.append(b_t+1)
+                            break
+                        elif b_t == Tmax-1:
+                            sampled_lengths.append(Tmax)
 
-                    # sort sampled_lengths
-                    sampled_lengths = np.array(sampled_lengths)
-                    sampled_lengths[::-1].sort()
-                    sampled_lengths = sampled_lengths.tolist()
-                    
-                    # get rewards from disc
-                    rewards[:,t,v] = discriminator(images, gen_samples.detach(), sampled_lengths)
+                # sort sampled_lengths
+                sampled_lengths = np.array(sampled_lengths)
+                sampled_lengths[::-1].sort()
+                sampled_lengths = sampled_lengths.tolist()
+                
+                # get rewards from disc
+                rewards[:,t,v] = discriminator(images, gen_samples.detach(), sampled_lengths)
 
                 # for v in tqdm(range(4, len(vocab))):
                 # # for v in range(4, 5):
