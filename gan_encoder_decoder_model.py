@@ -84,7 +84,6 @@ class DecoderRNN(nn.Module):
             hiddens, states = self.lstm(inputs, states)          # (batch_size, 1, hidden_size), 
             outputs = self.linear(hiddens.squeeze(1))            # (batch_size, vocab_size)
             predicted = outputs.max(1)[1]
-            # pdb.set_trace()
             # outputs = self.softmax(outputs)
             # predicted_index = outputs.multinomial(1)
             # predicted = outputs[predicted_index]
@@ -93,7 +92,8 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
         #sampled_ids = torch.cat(sampled_ids, 1)                  # (batch_size, 20)
         sampled_ids = torch.cat(sampled_ids, 0)                  # (batch_size, 20)
-        sampled_ids = sampled_ids.view(-1, 20)
+        sampled_ids = sampled_ids.view(-1, features.size(0))
+        sampled_ids = torch.t(sampled_ids)
         # return sampled_ids.squeeze()
         # pdb.set_trace()
         return sampled_ids
@@ -116,8 +116,9 @@ class DecoderRNN(nn.Module):
             inputs = inputs.unsqueeze(1)                         # (batch_size, 1, embed_size)
 
         outputs = self.linear(hiddens.squeeze(1))
-        outputs = self.softmax(outputs)
-        predicted_indices = outputs.multinomial(best_sample_nums)
+        # outputs = self.softmax(outputs)
+        # predicted_indices = outputs.multinomial(best_sample_nums)
+        predicted_indices = outputs.max(1)[1]
 
         return predicted_indices, states
 

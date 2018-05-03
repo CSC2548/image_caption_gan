@@ -16,6 +16,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 import pdb
 from tqdm import tqdm
+from utils import *
 
 """
 note: 
@@ -75,7 +76,7 @@ def main(args):
     params_disc = list(discriminator.parameters())
     optimizer_disc = torch.optim.Adam(params_disc)
 
-    if args.pretraining:
+    if int(args.pretraining) == 1:
         # Pre-training: train generator with MLE and discriminator with 3 losses (real + fake + wrong)
         total_steps = len(data_loader)
         disc_losses = []
@@ -173,6 +174,7 @@ def main(args):
                     # part 3: taken from rollouts
                     gen_samples[:,t:] = generator.rollout(gen_samples, t, saved_states)
                     
+
                     sampled_lengths = []
                     # finding sampled_lengths
                     for batch in range(int(captions.size(0))):
@@ -222,6 +224,7 @@ def main(args):
             rewards_detached = to_var(rewards_detached)
             loss_gen = torch.dot(outputs[0], -rewards_detached)
             gen_gan_losses.append(loss_gen.cpu().data.numpy()[0])
+            # pdb.set_trace()
             loss_gen.backward()
             optimizer_gen.step()
 
@@ -261,8 +264,9 @@ def main(args):
             loss_disc.backward()
             optimizer_disc.step()
 
+
             # Print log info
-            if epoch % 2 == 0 and i % args.log_step == 0:
+            if i % args.log_step == 0:
                 print('Epoch [%d/%d], Step [%d/%d], Disc Loss: %.4f, Gen Loss: %.4f'
                       %(epoch, args.num_epochs, i, total_step, 
                         loss_disc.data[0], loss_gen.data[0])) 
@@ -328,15 +332,15 @@ if __name__ == '__main__':
     # jm: not mentioned in paper what they should be...
     parser.add_argument('--disc_alpha', type=float, default=0)
     parser.add_argument('--disc_beta', type=float, default=0.5)
-    parser.add_argument('--gen_pretrain_num_epochs', type=int, default=5)
-    parser.add_argument('--disc_pretrain_num_epochs', type=int, default=1)
+    parser.add_argument('--gen_pretrain_num_epochs', type=int, default=20)
+    parser.add_argument('--disc_pretrain_num_epochs', type=int, default=5)
 
     # dirs
     parser.add_argument('--figure_path', type=str, default='./figures/' ,
                         help='path for figures')
 
     # debuggin
-    parser.add_argument('--pretraining', type=bool, default=True)
+    parser.add_argument('--pretraining', type=int, default=0)
     parser.add_argument('--pretrained_gen_path', type=str, default='./birds_gan_models/pretrained-generator-20.pkl')
     parser.add_argument('--pretrained_disc_path', type=str, default='./birds_gan_models/pretrained-discriminator-5.pkl')
     args = parser.parse_args()
