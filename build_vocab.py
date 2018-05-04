@@ -38,6 +38,7 @@ def build_vocab(filepath, threshold):
             with open(os.path.join(subdir, caption_file), 'r') as f:
                 captions = f.readlines()
                 for caption in captions:
+                    caption = caption.strip()
                     caption = caption.encode('ascii', 'ignore')
                     caption = caption.decode('ascii')
                     caption = re.sub(r'[!\"#$%&\'()*+,-./:;<=>?@[\\]^_`{|}~]+', '', caption)
@@ -78,7 +79,7 @@ if __name__ == '__main__':
                         help='path for train annotation file')
     parser.add_argument('--vocab_path', type=str, default='./data/birds_vocab_thresh_6.pkl', 
                         help='path for saving vocabulary wrapper')
-    parser.add_argument('--threshold', type=int, default=6, 
+    parser.add_argument('--threshold', type=int, default=4, 
                         help='minimum word count threshold')
     args = parser.parse_args()
     main(args)
