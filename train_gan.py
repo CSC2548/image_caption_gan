@@ -169,9 +169,11 @@ def main(args):
 
                 predicted_ids, saved_states = generator.pre_compute(gen_samples, t)
                 # for v in range(predicted_ids.size(1)):
-                v = predicted_ids[0]
+                v = predicted_ids
+                pdb.set_trace()
                 # part 2: taken from all possible vocabs
-                gen_samples[:,t] = predicted_ids[:,v]
+                # gen_samples[:,t] = predicted_ids[:,v]
+                gen_samples[:,t] = v
                 # part 3: taken from rollouts
                 gen_samples[:,t:] = generator.rollout(gen_samples, t, saved_states)
 
